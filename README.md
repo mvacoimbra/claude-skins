@@ -64,7 +64,9 @@ There are no slash commands: everything is set in the Skins tab of `/mods`, in s
 | Content | Tables and code as cards, selectable text or off; rich replies, code highlighting, the shell card, command output, charts and their hint, math, links, copy buttons, folding, quiet output, clipped output |
 | Usage band | The context and plan-limit meters above the prompt, and how long until each limit resets, to the second (`18% 5h · 4h05m09s`; on by default). With [cache-tax](https://github.com/mvacoimbra/cache-tax) installed the band also shows how long until the prompt cache goes cold (`cache: cold in 42m`, `cache: kept warm 5h10` while a keep-warm window runs, `cache: cold`) |
 | Colors | Every colour of the skin, with what it paints: pick one and type a hex |
-| Actions | Copy Claude's last reply or its last code block, and open the gallery of every element the skin draws |
+| Actions | Copy Claude's last reply or its last code block, and open the gallery of every component the skin draws, numbered and named |
+
+The same catalog of named components (prompt rows, every tool row state, cards, the 17 chart kinds, math, alerts, task lists, the usage band and cache countdown states, the spinner, the footer, the palette) shows in the Components tab of `/mods`, so you can point at one by name when asking for a change.
 
 **Design one with Claude.** Ask "make me a skin that feels like a sunset". skins gives Claude a
 `design` tool, so it builds the skin and applies it while you watch. Repainting a built-in skin saves
