@@ -2219,3 +2219,35 @@ test('the catalog names every component skins draws, once each, in English and P
   expect(pt.map(entry => entry.id)).toEqual((await catalogOf($)).map(entry => entry.id))
 })
 
+
+// Another mod drawing skins' catalog and its tab's preview in a pane of its own, as /mods does:
+// the trees cross as plain data, and an invalid one fails the mount.
+const DRAWER: Plugin = {
+  name: 'drawer',
+  register(on) {
+    on('ui.render', { component: 'Pane', requestId: 'catalog-check' }, async ($, e) => {
+      const { Box } = $.ui.resolve(e)
+      const args = { lang: 'en' as const, surface: e.surface, columns: e.props.bodyColumns }
+      const entries = await $.skins.catalog(args)
+      const panel = await $.skins.panel(args)
+      const previews = panel.sections.flatMap(section => section.items).flatMap(item => (item.kind === 'tree' ? [item.tree] : []))
+
+      return Box({ flexDirection: 'column', children: [...entries.map(entry => entry.tree), ...previews] as never })
+    })
+  },
+}
+
+test('another mod can draw every catalog tree and the tab preview, on both surfaces and widths', { plugins: [DRAWER] }, async ($, on) => {
+  stubEngine(on)
+
+  for (const surface of SURFACES) {
+    for (const bodyColumns of [90, 50]) {
+      const pane = await $.ui.mount({ plugin: 'drawer', viewport: { columns: 100, rows: 30 }, surface, component: 'Pane', requestId: 'catalog-check', props: { ...PANE.props, bodyColumns } })
+      const drawn = JSON.stringify(await pane.drawn())
+
+      expect(drawn, `${surface} ${bodyColumns}`).toContain('cache: cold in 42m')
+      expect(drawn, `${surface} ${bodyColumns}`).not.toContain('"type":"Button"')
+      await pane.unmount()
+    }
+  }
+})
