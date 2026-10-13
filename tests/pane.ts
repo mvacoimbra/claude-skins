@@ -1,7 +1,7 @@
 import { test as base } from 'claude-code/testing'
 import type { Engine, Plugin, TestBody } from 'claude-code/testing'
 
-import type { SkinsItem, SkinsPanel } from '../types'
+import type { SkinsCatalogEntry, SkinsItem, SkinsPanel } from '../types'
 
 // Only another module can call a plugin's noun. This stand-in for the /mods hub calls `$.skins`
 // from two commands of its own, hands the answer back as JSON, and toasts what a press answers,
@@ -10,6 +10,7 @@ export const HUB: Plugin = {
   name: 'hub',
   register(on) {
     on('command.run', { command: 'hub-panel' }, async ($, e) => ({ text: JSON.stringify(await $.skins.panel(JSON.parse(e.args))) }))
+    on('command.run', { command: 'hub-catalog' }, async ($, e) => ({ text: JSON.stringify(await $.skins.catalog(JSON.parse(e.args))) }))
     on('command.run', { command: 'hub-act' }, async ($, e) => {
       const result = await $.skins.act(JSON.parse(e.args))
 
@@ -40,6 +41,9 @@ async function call($: Engine, command: string, args: unknown) {
 
 export const panelOf = ($: Engine, lang: 'en' | 'pt' = 'en', surface: 'terminal' | 'desktop' = 'terminal', columns = 80): Promise<SkinsPanel> =>
   call($, 'hub-panel', { lang, surface, columns })
+
+export const catalogOf = ($: Engine, lang: 'en' | 'pt' = 'en', surface: 'terminal' | 'desktop' = 'terminal', columns = 80): Promise<SkinsCatalogEntry[]> =>
+  call($, 'hub-catalog', { lang, surface, columns })
 
 export const act = ($: Engine, id: string, value?: string): Promise<{ message?: string }> => call($, 'hub-act', value === undefined ? { id } : { id, value })
 

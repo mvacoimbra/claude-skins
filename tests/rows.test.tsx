@@ -6,7 +6,7 @@ import { cacheLine } from '../hooks/cache'
 import { widthOf } from '../hooks/markdown'
 import { mermaidArt } from '../hooks/mermaid-art'
 import noir from '../hooks/themes/noir'
-import { act, isMarked, itemOf, panelOf, test, viaPane } from './pane'
+import { act, catalogOf, isMarked, itemOf, panelOf, test, viaPane } from './pane'
 
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -998,8 +998,10 @@ test('the gallery opens from the settings pane with every element, numbered, on 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, requestId: 'skins-gallery', surface })
 
-    expect(await ui.find({ type: 'Text', text: /^1  Your prompt/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^11  Turn footer/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^1  Your prompt, left$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\d+  Chart: Sankey diagram$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\d+  Alert: CAUTION$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\d+  The skin’s palette$/ })).toBeDefined()
     await ui.unmount()
   }
 })
@@ -2195,3 +2197,25 @@ test('the cache line warns in the last ten minutes and turns red once cold', asy
   expect(cacheLine({ phase: 'cold', coldAt: null, warmUntil: null }, 0)).toEqual({ text: 'cache: cold', tone: 'err' })
   expect(cacheLine({ phase: 'unknown', coldAt: null, warmUntil: null }, 0)).toBeNull()
 })
+
+test('the catalog names every component skins draws, once each, in English and Portuguese, on both surfaces', async ($, on) => {
+  stubEngine(on)
+  const charts = ['flowchart', 'xychart', 'pie', 'gantt', 'timeline', 'journey', 'kanban', 'mindmap', 'quadrant', 'radar', 'sankey', 'gitgraph', 'treemap', 'packet', 'block', 'architecture', 'c4']
+
+  for (const surface of SURFACES) {
+    const entries = await catalogOf($, 'en', surface)
+    const ids = entries.map(entry => entry.id)
+
+    expect(new Set(ids).size, surface).toBe(ids.length)
+    expect(ids.length, surface).toBeGreaterThan(60)
+    expect(ids).toEqual(expect.arrayContaining([...charts.map(chart => `chart-${chart}`), 'prompt-row-left', 'tool-row-failed', 'usage-band-countdown', 'cache-cold', 'alert-note', 'math-display', 'task-list', 'palette']))
+    expect(entries.every(entry => entry.name.length > 0 && entry.tree !== null && entry.tree !== undefined)).toBe(true)
+    expect(ids.includes('code-card')).toBe(surface === 'desktop')
+    expect(ids.includes('code-rows')).toBe(surface === 'terminal')
+  }
+
+  const pt = await catalogOf($, 'pt')
+  expect(pt.find(entry => entry.id === 'chart-pie')?.name).toBe('Gráfico: Gráfico de pizza')
+  expect(pt.map(entry => entry.id)).toEqual((await catalogOf($)).map(entry => entry.id))
+})
+
