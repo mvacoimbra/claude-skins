@@ -53,7 +53,9 @@ const CLIP_HEAD = 8
 const CLIP_TAIL = 4
 const FRAME_MS = 90
 // Countdowns read to the minute, so they are looked at once a minute.
-const COUNTDOWN_MS = 60_000
+// The limits' reset countdowns tick each second; cache-tax's countdown reads to the minute.
+const COUNTDOWN_MS = 1000
+const CACHE_TICK_MS = 60_000
 const SETTLE_LEAD_MS = FRAME_MS
 const FAST_RETRIES = 4
 const RETRY_MAX_MS = 1000
@@ -716,6 +718,7 @@ export const register: Register = on => {
   let isWorking = false
   let ticker: Timer | undefined
   let countdownTicker: Timer | undefined
+  let cacheTicker: Timer | undefined
 
   on('session.start', async ($, e, next) => {
     await $.tool.register({
@@ -755,6 +758,9 @@ export const register: Register = on => {
       void tickCountdowns($).catch((error: unknown) => {
         $.ui.log(`countdown tick: ${error instanceof Error ? error.message : String(error)}`, { to: 'debug' })
       })
+    })
+    cacheTicker?.cancel()
+    cacheTicker = $.clock.every(CACHE_TICK_MS, () => {
       void tickCache($).catch((error: unknown) => {
         $.ui.log(`cache tick: ${error instanceof Error ? error.message : String(error)}`, { to: 'debug' })
       })

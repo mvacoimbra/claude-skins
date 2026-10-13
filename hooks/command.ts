@@ -9,7 +9,7 @@ export const DEFAULT_PREFS: Prefs = {
   tables: 'on',
   shimmer: true,
   band: true,
-  countdown: false,
+  countdown: true,
   clipOutput: false,
   markdown: true,
   quiet: false,

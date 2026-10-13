@@ -33,9 +33,35 @@ export function countdownOf(ms: number): string {
   return hours > 0 ? `${hours}h${String(rest).padStart(2, '0')}` : `${rest}m`
 }
 
-// Each limit's countdown by its label, for the limits that say when they reset.
+// The time left until a reset, to the second: `3d 4h05m09s`, `4h05m09s`, `5m09s`, `9s`, and
+// `now` once it is due.
+export function exactCountdownOf(ms: number): string {
+  const seconds = Math.ceil(ms / 1000)
+
+  if (seconds <= 0) {
+    return 'now'
+  }
+
+  const days = Math.floor(seconds / 86_400)
+  const hours = Math.floor((seconds % 86_400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const rest = seconds % 60
+  const two = (n: number) => String(n).padStart(2, '0')
+
+  if (days > 0) {
+    return `${days}d ${hours}h${two(minutes)}m${two(rest)}s`
+  }
+
+  if (hours > 0) {
+    return `${hours}h${two(minutes)}m${two(rest)}s`
+  }
+
+  return minutes > 0 ? `${minutes}m${two(rest)}s` : `${rest}s`
+}
+
+// Each limit's countdown by its label, to the second, for the limits that say when they reset.
 export const countdownsOf = (usage: UsageSnap, now: number): Record<string, string> =>
-  Object.fromEntries(usage.limits.flatMap(limit => (limit.resetsAt === undefined ? [] : [[limit.label, countdownOf(limit.resetsAt - now)]])))
+  Object.fromEntries(usage.limits.flatMap(limit => (limit.resetsAt === undefined ? [] : [[limit.label, exactCountdownOf(limit.resetsAt - now)]])))
 
 // What the band's entrance is keyed by: the numbers, not the countdowns, so a countdown
 // ticking down redraws the rings settled instead of filling them again.

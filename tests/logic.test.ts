@@ -11,7 +11,7 @@ import { fitText, settled } from '../hooks/svg-kit'
 import { diffLines, diffSvg, hunksOf } from '../hooks/svg-diff'
 import { fitColumns, kindOfCell, measure, tableSvg, wrapCell } from '../hooks/svg-table'
 import { outputLines, shellOutputOf, terminalSvg } from '../hooks/svg-terminal'
-import { countdownOf, countdownsOf, limitLabel, meterColor, metersKey, metersOf, usageSvg } from '../hooks/svg-usage'
+import { countdownOf, countdownsOf, exactCountdownOf, limitLabel, meterColor, metersKey, metersOf, usageSvg } from '../hooks/svg-usage'
 import { isNewer, starStep, updateNotice } from '../hooks/updates'
 import { deepen, gnomeDark, isLightTheme, macDark, resolveLight, toLight, windowsDark } from '../hooks/light'
 import { parseFolders, prefsFor, withFolder, withoutFolder } from '../hooks/folders'
@@ -301,8 +301,18 @@ test('a countdown reads to the minute, rounding up, and only for the limits that
   expect(countdownOf(minutes(11) + 1)).toBe('12m')
   expect(countdownOf(0)).toBe('now')
   expect(countdownOf(-5000)).toBe('now')
-  expect(countdownsOf({ context: 10, limits: [{ label: '5h', percent: 1, resetsAt: minutes(100) }, { label: '7d', percent: 2 }] }, 0)).toEqual({ '5h': '1h40' })
+  expect(countdownsOf({ context: 10, limits: [{ label: '5h', percent: 1, resetsAt: minutes(100) }, { label: '7d', percent: 2 }] }, 0)).toEqual({ '5h': '1h40m00s' })
   expect(metersKey(metersOf({ context: null, limits: [{ label: '5h', percent: 1 }] }, { '5h': '1h40' }))).toBe(metersKey(metersOf({ context: null, limits: [{ label: '5h', percent: 1 }] })))
+})
+
+test('a reset countdown reads to the second, rounding up', async () => {
+  const seconds = (n: number) => n * 1000
+
+  expect(exactCountdownOf(seconds(3 * 86_400 + 4 * 3600 + 5 * 60 + 9))).toBe('3d 4h05m09s')
+  expect(exactCountdownOf(seconds(4 * 3600 + 5 * 60 + 9))).toBe('4h05m09s')
+  expect(exactCountdownOf(seconds(5 * 60 + 9))).toBe('5m09s')
+  expect(exactCountdownOf(seconds(9) - 1)).toBe('9s')
+  expect(exactCountdownOf(0)).toBe('now')
 })
 
 test('a long cell wraps on its words, breaks a word too long for the column, and caps its lines', async () => {
