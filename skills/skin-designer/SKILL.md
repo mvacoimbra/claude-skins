@@ -17,7 +17,7 @@ every change shows on screen the moment the call returns.
    it changes.
 3. Call `save` with a lowercase hyphenated `name`, the `base`, the changed `palette` slots, and, when
    the mood calls for it, `spinner` gerunds and `done` past-tense words that match it.
-4. Tell them what you changed in one line, and that `/skin` opens the settings to fine-tune it.
+4. Tell them what you changed in one line, and that the Skins tab of `/mods` fine-tunes it.
 
 ```json
 {

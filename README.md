@@ -27,7 +27,7 @@ Needs Claude Code **2.1.287** or later, in a terminal or the desktop app's Code 
 /plugin install skins@hellosverre-mods
 ```
 
-Restart Claude Code. The **noir** skin is on; type `/skin` to change it.
+Restart Claude Code. The **noir** skin is on; change it in the Skins tab of `/mods`, the pane of the [claude-mods-hub](https://github.com/mvacoimbra/claude-mods-hub) mod.
 
 Looking for more mods? `/plugin install mod-store@hellosverre-mods`, then `/mods` browses and installs about 2,700 of them from a pane, showing what each one can access first.
 
@@ -51,18 +51,18 @@ Then restart Claude Code. Open sessions keep the version they started with.
 claude plugin uninstall skins@hellosverre-mods
 ```
 
-To keep it installed but go back to Claude Code's own drawing, pick **off** in `/skin`.
+To keep it installed but go back to Claude Code's own drawing, pick **off** in the Skins tab of `/mods`.
 
 ## Use
 
-`/skin` opens the settings. Everything is set there, in six tabs (1–6 switch between them):
+There are no slash commands: everything is set in the Skins tab of `/mods`, in six sections, in English or Portuguese (the hub's language):
 
-| Tab | What it sets |
+| Section | What it sets |
 |---|---|
 | Theme | The skin, with a live preview, or off for Claude Code's own drawing. Whether this folder keeps its own look or follows the default |
-| Look | Which side your prompt sits on in the terminal (or no outline), icons, whose spinner words show, the turn rail, the shimmer, calm mode, and the language of the settings (English or Português) |
+| Look | Which side your prompt sits on in the terminal (or no outline), icons, whose spinner words show, the turn rail, the shimmer and calm mode |
 | Content | Tables and code as cards, selectable text or off; rich replies, code highlighting, the shell card, command output, charts and their hint, math, links, copy buttons, folding, quiet output, clipped output |
-| Usage band | The context and plan-limit meters above the prompt, and their reset countdown |
+| Usage band | The context and plan-limit meters above the prompt, and their reset countdown. With [cache-tax](https://github.com/mvacoimbra/cache-tax) installed the band also shows how long until the prompt cache goes cold (`cache: cold in 42m`, `cache: kept warm 5h10` while a keep-warm window runs, `cache: cold`) |
 | Colors | Every colour of the skin, with what it paints: pick one and type a hex |
 | Actions | Copy Claude's last reply or its last code block, and open the gallery of every element the skin draws |
 
@@ -105,14 +105,14 @@ Drawn by the mod's own card code (`scripts/previews.ts`), not screenshots.
 |---|---|---|
 | Tool calls | Icon per kind, spinner while running, lines changed, time taken. `▸` opens the row: the call's input in full and its answer (a read's text with line numbers, a search's matches, the shell card, the diff); a failed call opens by itself | A node on the turn's rail, with the same `▸` |
 | Edits | Diff card with `+N −M` and numbered lines | Claude Code's own diff |
-| Shell commands | Terminal card with status, stderr apart, long output folded; paths, numbers and error, warning and pass words coloured | Card with the command, the output coloured the same way, `✓` or `✗ exit N`, stderr in red under its own label, each stream folded to 8 + 4 lines (Shell card off in `/skin` for Claude Code's own) |
+| Shell commands | Terminal card with status, stderr apart, long output folded; paths, numbers and error, warning and pass words coloured | Card with the command, the output coloured the same way, `✓` or `✗ exit N`, stderr in red under its own label, each stream folded to 8 + 4 lines (Shell card off in `/mods` for Claude Code's own) |
 | Quiet output (off by default) | Reads, searches and read-only commands fold to one row; a failure keeps its error line | The same |
 | Tables | Card with header rule, zebra rows, colour swatches | Cell grid with a header band |
-| Charts | ` ```mermaid ` as a card: flowchart, xy, pie, gantt, timeline, journey, kanban, mindmap, quadrant, radar, sankey, gitGraph, treemap, packet, block, architecture, C4 | The same seventeen drawn in cells, ASCII with icons set to ascii in `/skin` |
+| Charts | ` ```mermaid ` as a card: flowchart, xy, pie, gantt, timeline, journey, kanban, mindmap, quadrant, radar, sankey, gitGraph, treemap, packet, block, architecture, C4 | The same seventeen drawn in cells, ASCII with icons set to ascii in `/mods` |
 | Math | `$$…$$`, `\[…\]` and ` ```math ` as a typeset card: fractions, roots, sums and integrals with limits, matrices, aligned lines; `$…$` inline turns into Unicode | Fractions and limits stacked in cells, inline `$…$` as Unicode |
 | Command output | `/cost`, `/context` and plugin output: tables, code and `key: value` runs as cards | The same as cell grids |
 | Alerts and task lists | `> [!NOTE]` as a titled box, `- [ ]` with ticks and a done count | The same |
-| Code blocks | Card with language, line numbers, highlighting; shell blocks keep the Run button | Framed, the language on the frame, highlighted in the skin's colours: TS/JS, JSON, shells, PowerShell, Python, Rust, Go, C/C++, C#, F#, Java, YAML, TOML, HTML/XML, CSS, SQL, diff, Markdown, Lua (Code highlighting off in `/skin` for Claude Code's own) |
+| Code blocks | Card with language, line numbers, highlighting; shell blocks keep the Run button | Framed, the language on the frame, highlighted in the skin's colours: TS/JS, JSON, shells, PowerShell, Python, Rust, Go, C/C++, C#, F#, Java, YAML, TOML, HTML/XML, CSS, SQL, diff, Markdown, Lua (Code highlighting off in `/mods` for Claude Code's own) |
 | Spinner | Animated icon per phase | The skin's word with a band of light |
 | Above the prompt | Context and plan-limit rings, Compact button, nudge at 70% | Block meters, same button |
 | Your prompts | Claude Code's own, so copy, rewind and selection stay | Rounded outline, or a plain marker |
@@ -125,7 +125,7 @@ Every card has a Copy button (tables also `as text`, the table as drawn; a reply
 drawing changes: the stored conversation and what the model reads are untouched. Agents, plan mode
 and the permission prompt keep Claude Code's own drawing.
 
-**Chart hints.** While charts are on, Claude gets a short model-only note (about 130 tokens, estimated from its 458 characters) saying ` ```mermaid ` fences draw here, so it reaches for a chart when one reads better. Never for headless `claude -p` runs. Turning Chart hints off in `/skin` drops it and keeps charts drawing.
+**Chart hints.** While charts are on, Claude gets a short model-only note (about 130 tokens, estimated from its 458 characters) saying ` ```mermaid ` fences draw here, so it reaches for a chart when one reads better. Never for headless `claude -p` runs. Turning Chart hints off in `/mods` drops it and keeps charts drawing.
 
 **Light and dark.** Every skin has both and follows Claude Code's theme. On `auto` it follows your
 terminal (`COLORFGBG`) or the system. Force one with `SKINS_THEME=light` or `SKINS_THEME=dark`.
@@ -173,7 +173,7 @@ scripts/bench.sh
 | A failed shell call that hands back error text, not its record | stdout and stderr arrive merged, so the whole text is drawn as stderr | `shellResultOf` in [`hooks/shell.ts`](hooks/shell.ts) |
 | A command sent to the background, or output that is an image | Claude Code's own row, which says where it went or draws the image | `keepsOwnRow` in [`hooks/shell.ts`](hooks/shell.ts); test "the shell card off gives shell output back…" |
 | Shell cards and tool timings after `/resume` | No command in the header and no time: both are recorded as the call runs | `commandAtom`, `durationAtom` in [`hooks/register.tsx`](hooks/register.tsx) |
-| Slash-command errors and `/skin`'s own output | Claude Code's own row | test "slash-command output with key: value lines is a table, prose keeps its row" |
+| Slash-command errors | Claude Code's own row | test "slash-command output with key: value lines is a table, prose keeps its row" |
 | Calm mode and Claude Code's spinner | Calm hands the spinner back to Claude Code, whose own spinner still moves | `Spinner` in [`hooks/register.tsx`](hooks/register.tsx) |
 | The settings pane on mobile | A line saying to use the terminal or the desktop app | `Pane` in [`hooks/register.tsx`](hooks/register.tsx) |
 | File paths as links | Coloured, not clickable: the engine's `Link` takes only `https:` and `http://localhost` | `safeHref` in [`hooks/links.ts`](hooks/links.ts) |
@@ -206,7 +206,7 @@ the README does not say.
 | Right-to-left text | No | **Hebrew and Arabic** | Hebrew and Arabic | | | No |
 | Usage meters | Context and plan limits above the prompt | | | | No | **Many widgets**, Powerline |
 | Spinner words | The skin's, with a shimmer | | | **Your own verbs and animations** | No | No |
-| Copy | Cards, tables as markdown or as drawn, `copy reply`, Copy last reply in `/skin` | Buttons, `/prismantis copy`, HTML tables | Code, tables, diagrams, lists, quotes | | | No |
+| Copy | Cards, tables as markdown or as drawn, `copy reply`, Copy last reply in `/mods` | Buttons, `/prismantis copy`, HTML tables | Code, tables, diagrams, lists, quotes | | | No |
 | API for other mods | `$.skins.markdown` | `$.prismantis.markdown` | | | | No |
 
 Where they are better: **tweakcc** recolours all of Claude Code, not only what a hook can
