@@ -1,8 +1,9 @@
-// Whether an installed copy is behind. A release is the version bump on main, so main's
-// plugin.json is the latest. register.tsx does the fetching, since $ stays in that file.
-export const LATEST_URL = 'https://raw.githubusercontent.com/hellosverre/claude-skins/main/.claude-plugin/plugin.json'
+// Whether an installed copy is behind this fork. A release is the version bump on main, so
+// main's plugin.json is the latest. register.tsx does the fetching, since $ stays in that file.
+export const LATEST_URL = 'https://raw.githubusercontent.com/mvacoimbra/claude-skins/main/.claude-plugin/plugin.json'
 const DAY_MS = 24 * 60 * 60 * 1000
-const PLUGIN_ID = 'skins@hellosverre-mods'
+const MARKETPLACE = 'claude-mods'
+const PLUGIN_ID = `skins@${MARKETPLACE}`
 
 export type Checked = { at: number }
 
@@ -34,7 +35,7 @@ export function isNewer(latest: string, current: string): boolean {
 }
 
 export const updateNotice = (latest: string, current: string): string =>
-  `skins ${latest} is out (you have ${current}). Run: claude plugin update ${PLUGIN_ID}, then restart`
+  `skins ${latest} is out (you have ${current}). Run: claude plugin marketplace update ${MARKETPLACE} && claude plugin update ${PLUGIN_ID}, then restart`
 
 export const isDue = (raw: unknown, now: number): boolean => {
   const at = typeof raw === 'object' && raw !== null ? (raw as Partial<Checked>).at : undefined

@@ -1018,7 +1018,7 @@ test('a release is newer by its first differing part, and anything not x.y.z nev
   expect(isNewer('0.1.2', '0.1.3')).toBe(false)
   expect(isNewer('1.0.0-beta', '0.1.2')).toBe(false)
   expect(isNewer('0.1.3', 'dev')).toBe(false)
-  expect(updateNotice('0.1.3', '0.1.2')).toBe('skins 0.1.3 is out (you have 0.1.2). Run: claude plugin update skins@hellosverre-mods, then restart')
+  expect(updateNotice('0.1.3', '0.1.2')).toBe('skins 0.1.3 is out (you have 0.1.2). Run: claude plugin marketplace update claude-mods && claude plugin update skins@claude-mods, then restart')
 })
 
 test('the star ask comes once, three days after skins was first seen', () => {
