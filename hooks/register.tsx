@@ -1,8 +1,8 @@
 import { atom, memberOf, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement, RenderSurface, Timer } from 'claude-code'
 
-import type { CustomSkin, Disclosure, Prefs, SkinSlot, SkinsMarkdownArgs, Touch, TurnStats, UsageSnap } from '../types'
-import { DEFAULT_PREFS, nextTables, parsePrefs, runSkinCommand, TOGGLES, withCalm } from './command'
+import type { CustomSkin, Disclosure, Prefs, SettingsTab, SkinSlot, SkinsMarkdownArgs, Touch, TurnStats, UsageSnap } from '../types'
+import { DEFAULT_PREFS, parsePrefs, TOGGLES, withCalm } from './command'
 import { buildCustom, resolveSkin, skinNames, withSlot } from './custom'
 import { forTheme, gnomeDark, macDark, resolveLight, windowsDark } from './light'
 import { parseFolders, prefsFor, withFolder, withoutFolder } from './folders'
@@ -20,6 +20,8 @@ import { galleryPane } from './gallery'
 import { keepsOwnRow, SHELLS, shellResultOf } from './shell'
 import { OUTPUT_FOLD, shellRows } from './shell-rows'
 import { settingsPane } from './settings'
+import type { FolderWord } from './settings'
+import { STRINGS } from './i18n'
 import { sightings } from './sightings'
 import { ICONS } from './skin'
 import type { Skin } from './skin'
@@ -43,7 +45,6 @@ const DESIGN_MATCH = /^mcp__skins__design$/
 const MAX_PROMPT = 4000
 
 // The settings pane's prompt button cycles through these.
-const PROMPT_NEXT: Readonly<Record<Prefs['prompt'], Prefs['prompt']>> = { left: 'right', right: 'plain', plain: 'left' }
 
 const CLIP_HEAD = 8
 const CLIP_TAIL = 4
@@ -65,6 +66,7 @@ const frameAtom = atom({ plugin: 'skins', key: 'frame' } as const, 0)
 const turnsAtom = atom({ plugin: 'skins', key: 'turns' } as const, {})
 const durationAtom = atom({ plugin: 'skins', key: 'duration' } as const, -1)
 const editingAtom = atom({ plugin: 'skins', key: 'editing' } as const, 'user' as SkinSlot)
+const tabAtom = atom({ plugin: 'skins', key: 'tab' } as const, 'theme' as SettingsTab)
 const lightAtom = atom({ plugin: 'skins', key: 'isLight' } as const, false)
 const imagesAtom = atom({ plugin: 'skins', key: 'images' } as const, false)
 // Whether a call only looked, so quiet output folds its result away.
@@ -404,32 +406,33 @@ async function savePrefs($: EngineInterface, prefs: Prefs): Promise<void> {
   await $.store.set('folders', withFolder(folders, await $.session.cwd(), prefs))
 }
 
-// /skin pin, unpin and share: this folder's own look, or the default.
-async function runFolderCommand($: EngineInterface, word: string): Promise<string> {
+// The settings pane's folder buttons: this folder's own look, or the default.
+async function runFolderAction($: EngineInterface, word: FolderWord): Promise<string> {
   const folder = await $.session.cwd()
   const custom = await read($, customAtom)
   const names = skinNames(custom)
   const folders = parseFolders(await $.store.get('folders'), names)
   const prefs = await read($, prefsAtom)
+  const t = STRINGS[prefs.lang].toasts
 
   switch (word) {
     case 'pin':
       await $.store.set('folders', withFolder(folders, folder, prefs))
       await update($, pinnedAtom, () => true)
 
-      return 'this folder keeps its own look'
+      return t.pinned
     case 'unpin': {
       const fallback = parsePrefs(await $.store.get('prefs'), names)
       await $.store.set('folders', withoutFolder(folders, folder))
       await update($, pinnedAtom, () => false)
       await update($, prefsAtom, () => fallback)
 
-      return `this folder follows the default: ${fallback.skin}`
+      return t.unpinned(fallback.skin)
     }
-    default:
+    case 'share':
       await $.store.set('prefs', prefs)
 
-      return `default look: ${prefs.skin}`
+      return t.shared(prefs.skin)
   }
 }
 
@@ -564,14 +567,11 @@ export const register: Register = on => {
   let isWorking = false
   let ticker: Timer | undefined
   let countdownTicker: Timer | undefined
-  // The width the last reply was drawn at, shown by /skin list to tune table sizing.
-  let lastColumns: number | undefined
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'skin',
-      description: 'Open the skin settings, or /skin <name | list | off>',
-      argumentHint: '[gallery | copy | copy code | name | list | off | calm | pin | unpin | share | rail | tables | shimmer | band | countdown | clip | markdown | quiet | charts | math | commands | shell | highlight | hints | links | fold | icons | prompt | words]',
+      description: 'Open the skin settings',
       immediate: true,
     })
     await $.tool.register({
@@ -746,58 +746,9 @@ export const register: Register = on => {
     return { result: outcome.text }
   })
 
-  on('command.run', { command: 'skin' }, async ($, e) => {
-    if (e.args.trim() === '') {
-      await $.ui.open({ id: SETTINGS, title: 'Skins', focus: true, closeOnEscape: true })
-
-      return {}
-    }
-
-    if (e.args.trim().toLowerCase() === 'gallery') {
-      await $.ui.open({ id: GALLERY, title: 'Skin gallery', focus: true, closeOnEscape: true })
-
-      return {}
-    }
-
-    const word = e.args.trim().toLowerCase()
-
-    if (word === 'copy' || word === 'copy code') {
-      const copied = copyOf(await read($, lastReplyAtom), word === 'copy code')
-
-      if ('message' in copied) {
-        $.ui.toast(copied.message)
-      } else {
-        const result = await $.ui.copy({ text: copied.text })
-        $.ui.toast(result.isCopied ? (word === 'copy' ? 'Copied the reply' : 'Copied the code') : 'Could not copy here')
-      }
-
-      return {}
-    }
-
-    if (word === 'pin' || word === 'unpin' || word === 'share') {
-      $.ui.toast(await runFolderCommand($, word))
-
-      return {}
-    }
-
-    const current = await read($, prefsAtom)
-    const custom = await read($, customAtom)
-    const outcome = runSkinCommand(e.args, current, skinNames(custom))
-
-    if (outcome.prefs !== current) {
-      await commit($, { prefs: outcome.prefs, custom })
-    }
-
-    if (outcome.channel === 'row') {
-      const width = lastColumns === undefined ? '' : `
-reply width: ${lastColumns} columns`
-
-      const folder = (await read($, pinnedAtom)) ? 'this folder: pinned' : 'this folder: follows the default'
-
-      return { text: e.args.trim() === 'list' ? `${outcome.message}\n${folder}${width}` : outcome.message }
-    }
-
-    $.ui.toast(outcome.message)
+  // Everything is set in the pane: /skin opens it, whatever follows the name.
+  on('command.run', { command: 'skin' }, async $ => {
+    await $.ui.open({ id: SETTINGS, title: 'Skins', focus: true, closeOnEscape: true })
 
     return {}
   })
@@ -815,16 +766,17 @@ reply width: ${lastColumns} columns`
 
     const look = lookOf(ui, { prefs, custom, skin }, e.surface)
     const state = { prefs, custom }
+    const tab = await read($, tabAtom)
+    const pinned = await read($, pinnedAtom)
+    const toasts = STRINGS[prefs.lang].toasts
+    const lastReply = await read($, lastReplyAtom)
 
-    return settingsPane(look, ui, { names: skinNames(custom), editing, width: e.props.bodyColumns }, {
+    return settingsPane(look, ui, { names: skinNames(custom), editing, width: e.props.bodyColumns, tab, pinned }, {
+      tab: next => void update($, tabAtom, () => next),
       pick: name => void commit($, { ...state, prefs: { ...prefs, skin: name } }),
       toggle: word => void commit($, { ...state, prefs: { ...prefs, [TOGGLES[word]]: !prefs[TOGGLES[word]] } }),
       calm: () => void commit($, { ...state, prefs: withCalm(prefs, prefs.calm === null) }),
-      tables: () => void commit($, { ...state, prefs: { ...prefs, tables: nextTables(prefs.tables) } }),
-      icons: () =>
-        void commit($, { ...state, prefs: { ...prefs, icons: prefs.icons === 'unicode' ? 'ascii' : 'unicode' } }),
-      prompt: () => void commit($, { ...state, prefs: { ...prefs, prompt: PROMPT_NEXT[prefs.prompt] } }),
-      words: () => void commit($, { ...state, prefs: { ...prefs, words: prefs.words === 'skin' ? 'claude' : 'skin' } }),
+      choose: (field, value) => void commit($, { ...state, prefs: { ...prefs, [field]: value } }),
       edit: slot => void update($, editingAtom, () => slot),
       paint: hex => {
         const made = withSlot(prefs.skin === 'off' ? DEFAULT_PREFS.skin : prefs.skin, custom, editing, hex)
@@ -837,6 +789,21 @@ reply width: ${lastColumns} columns`
 
         void commit($, { prefs: { ...prefs, skin: made.name }, custom: { ...custom, [made.name]: made.skin } })
       },
+      folder: word => void runFolderAction($, word).then(message => $.ui.toast(message)),
+      copy: code => {
+        const copied = copyOf(lastReply, code)
+
+        if ('message' in copied) {
+          $.ui.toast(copied.message)
+
+          return
+        }
+
+        void $.ui
+          .copy({ text: copied.text, surface: e.surface })
+          .then(result => $.ui.toast(result.isCopied ? (code ? toasts.copiedCode : toasts.copiedReply) : toasts.cannotCopy))
+      },
+      gallery: () => void $.ui.open({ id: GALLERY, title: 'Skin gallery', focus: true, closeOnEscape: true }),
     })
   })
 
@@ -846,7 +813,7 @@ reply width: ${lastColumns} columns`
     const ui = $.ui.resolve(e)
 
     if (active === null) {
-      return <ui.Text>The gallery shows a skin. Pick one with /skin first.</ui.Text>
+      return <ui.Text>The gallery shows a skin. Pick one in /skin first.</ui.Text>
     }
 
     const look = lookOf(ui, active, e.surface)
@@ -1052,7 +1019,6 @@ reply width: ${lastColumns} columns`
     // are text grids and code the app's own selectable blocks.
     const ui = $.ui.resolve(e)
     const svg = e.surface !== 'terminal' && active.prefs.tables === 'on' && 'Svg' in ui ? ui.Svg : undefined
-    lastColumns = e.viewport?.columns
     const copy = (copied: string) => {
       void $.ui.copy({ text: copied, surface: e.surface }).then(result => $.ui.toast(result.isCopied ? 'Copied' : 'Could not copy here'))
     }

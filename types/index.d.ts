@@ -17,9 +17,14 @@ export type SkinSlot =
   | 'err'
   | 'warn'
 
-// What /skin and the settings pane change. `skin` is a skin's name, or 'off'.
+// The settings pane's tabs, in the order they are drawn.
+export type SettingsTab = 'theme' | 'look' | 'content' | 'band' | 'colors' | 'actions'
+
+// What the settings pane changes. `skin` is a skin's name, or 'off'.
 export type Prefs = {
   skin: string
+  // The language the settings pane speaks.
+  lang: 'en' | 'pt'
   icons: 'unicode' | 'ascii'
   // Which side the outline around a typed prompt sits on; 'right' matches the desktop app.
   // 'plain' drops the outline for a leading marker.
@@ -110,6 +115,8 @@ declare module 'claude-code' {
       turns: Record<string, TurnStats>
       duration: StateFamily<number>
       editing: SkinSlot
+      // The settings pane's open tab.
+      tab: SettingsTab
       usage: UsageSnap
       // The usage band's countdowns by limit label, as last drawn.
       countdowns: Record<string, string>

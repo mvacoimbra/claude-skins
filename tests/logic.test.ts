@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { DEFAULT_PREFS, parsePrefs, runSkinCommand, withCalm } from '../hooks/command'
+import { DEFAULT_PREFS, parsePrefs, withCalm } from '../hooks/command'
 import { foldLines, shellResultOf, shellStatus } from '../hooks/shell'
 import { buildCustom, resolveSkin, skinNames, withSlot } from '../hooks/custom'
 import { runDesign } from '../hooks/designer'
@@ -177,20 +177,17 @@ test('the design tool saves, applies, changes settings and deletes', async () =>
   expect(JSON.parse(runDesign({ action: 'show' }, start).text).current).toBe('noir')
 })
 
-test('/skin names a skin, switches parts, and refuses what it does not know', async () => {
-  expect(runSkinCommand('nord', DEFAULT_PREFS, NAMES).prefs.skin).toBe('nord')
-  expect(runSkinCommand('default', DEFAULT_PREFS, NAMES).prefs.skin).toBe('off')
-  expect(runSkinCommand('rail off', DEFAULT_PREFS, NAMES).prefs.rail).toBe(false)
-  expect(runSkinCommand('clip on', DEFAULT_PREFS, NAMES).prefs.clipOutput).toBe(true)
-  expect(runSkinCommand('shimmer maybe', DEFAULT_PREFS, NAMES).prefs).toBe(DEFAULT_PREFS)
-  expect(runSkinCommand('plaid', DEFAULT_PREFS, NAMES).channel).toBe('row')
-  expect(runSkinCommand('list', { ...DEFAULT_PREFS, skin: 'nord' }, NAMES).message).toContain('● nord')
-})
-
 test('stored prefs that are stale or hand-edited fall back to defaults', async () => {
   expect(parsePrefs(undefined, NAMES)).toEqual(DEFAULT_PREFS)
   expect(parsePrefs({ skin: 'gone', icons: 'x', rail: 'yes' }, NAMES)).toEqual(DEFAULT_PREFS)
   expect(parsePrefs({ skin: 'off', rail: false }, NAMES).rail).toBe(false)
+})
+
+test('the settings pane speaks English unless Portuguese is stored', async () => {
+  expect(DEFAULT_PREFS.lang).toBe('en')
+  expect(parsePrefs({ lang: 'pt' }, NAMES).lang).toBe('pt')
+  expect(parsePrefs({ lang: 'fr' }, NAMES).lang).toBe('en')
+  expect(parsePrefs({}, NAMES).lang).toBe('en')
 })
 
 test('tables are on, text or off, and a stored on/off from before still reads', async () => {
@@ -198,9 +195,6 @@ test('tables are on, text or off, and a stored on/off from before still reads', 
   expect(parsePrefs({ tables: false }, NAMES).tables).toBe('off')
   expect(parsePrefs({ tables: 'text' }, NAMES).tables).toBe('text')
   expect(parsePrefs({ tables: 'grid' }, NAMES).tables).toBe('on')
-  expect(runSkinCommand('tables text', DEFAULT_PREFS, NAMES).prefs.tables).toBe('text')
-  expect(runSkinCommand('tables maybe', DEFAULT_PREFS, NAMES).message).toBe('usage: /skin tables on|text|off')
-  expect(runSkinCommand('list', { ...DEFAULT_PREFS, tables: 'text' }, NAMES).message).toContain('tables text')
 })
 
 test('the prompt sits left, right or plain, and anything else stored reads as left', async () => {
@@ -209,11 +203,6 @@ test('the prompt sits left, right or plain, and anything else stored reads as le
   expect(parsePrefs({ prompt: 'plain' }, NAMES).prompt).toBe('plain')
   expect(parsePrefs({ prompt: 'centre' }, NAMES).prompt).toBe('left')
   expect(parsePrefs({ prompt: true }, NAMES).prompt).toBe('left')
-  expect(runSkinCommand('prompt right', DEFAULT_PREFS, NAMES).prefs.prompt).toBe('right')
-  expect(runSkinCommand('prompt left', { ...DEFAULT_PREFS, prompt: 'right' }, NAMES).prefs.prompt).toBe('left')
-  expect(runSkinCommand('prompt plain', DEFAULT_PREFS, NAMES).prefs.prompt).toBe('plain')
-  expect(runSkinCommand('prompt up', DEFAULT_PREFS, NAMES).message).toBe('usage: /skin prompt left|right|plain')
-  expect(runSkinCommand('list', { ...DEFAULT_PREFS, prompt: 'right' }, NAMES).message).toContain('prompt right')
 })
 
 test('words are the skin’s or Claude Code’s, and anything else stored reads as the skin’s', async () => {
@@ -222,11 +211,6 @@ test('words are the skin’s or Claude Code’s, and anything else stored reads 
   expect(parsePrefs({ words: 'mine' }, NAMES).words).toBe('skin')
   expect(parsePrefs({ words: true }, NAMES).words).toBe('skin')
   expect(parsePrefs({}, NAMES).words).toBe('skin')
-  expect(runSkinCommand('words claude', DEFAULT_PREFS, NAMES).prefs.words).toBe('claude')
-  expect(runSkinCommand('words skin', { ...DEFAULT_PREFS, words: 'claude' }, NAMES).prefs.words).toBe('skin')
-  expect(runSkinCommand('words mine', DEFAULT_PREFS, NAMES).message).toBe('usage: /skin words claude|skin')
-  expect(runSkinCommand('words', DEFAULT_PREFS, NAMES).prefs.words).toBe('skin')
-  expect(runSkinCommand('list', { ...DEFAULT_PREFS, words: 'claude' }, NAMES).message).toContain('words claude')
 })
 
 test('cells are read as colours, diffs, numbers, code or text', async () => {
@@ -515,7 +499,7 @@ test('quiet output covers reads, searches and read-only shell calls, and finds t
   expect(errorLine('one\ntwo\n')).toBe('two')
 })
 
-test('/skin copy takes the whole reply, or with code its last code block', async () => {
+test('copying takes the whole reply, or with code its last code block', async () => {
   const reply = 'Try:\n\n```ts\nconst a = 1\n```\n\nor:\n\n```bash\npnpm build\n```'
 
   expect(copyOf(reply, false)).toEqual({ text: reply })
@@ -1124,13 +1108,9 @@ test('calm saves what it changes and calm off puts exactly that back', () => {
   expect(withCalm(calm, true)).toBe(calm)
   expect(withCalm({ ...calm, skin: 'dracula' }, false)).toEqual({ ...mine, skin: 'dracula' })
   expect(withCalm(mine, false)).toBe(mine)
-  expect(runSkinCommand('calm', mine, NAMES).prefs).toEqual(calm)
-  expect(runSkinCommand('calm off', calm, NAMES).prefs).toEqual(mine)
-  expect(runSkinCommand('calm maybe', mine, NAMES).channel).toBe('row')
   // A stored snapshot survives the round trip; a broken one reads as calm off.
   expect(parsePrefs(JSON.parse(JSON.stringify(calm)), NAMES).calm).toEqual(calm.calm)
   expect(parsePrefs({ calm: { shimmer: 'yes' } }, NAMES).calm).toBeNull()
-  expect(runSkinCommand('shell off', DEFAULT_PREFS, NAMES).prefs.shell).toBe(false)
 })
 
 test('shell output folds per stream, and a failure names its exit code when it has one', () => {

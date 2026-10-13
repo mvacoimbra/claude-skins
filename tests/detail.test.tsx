@@ -3,6 +3,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import { bodyOf, chunksOf, inputFields, isOpen, unifiedDiff } from '../hooks/detail'
+import { viaPane } from './pane'
 
 // Opened tool rows: the chevron, the call's input in full and its answer.
 
@@ -150,8 +151,8 @@ test('PowerShell gets the shell card and the clip as Bash does', async ($, on) =
   await desktop.unmount()
 
   // With the card off, long output is still clipped to its head and tail.
-  await $.command.run({ command: 'skin', args: 'shell off', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
-  await $.command.run({ command: 'skin', args: 'clip on', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
+  await viaPane($, 'shell off')
+  await viaPane($, 'clip on')
   const stdout = Array.from({ length: 40 }, (_, i) => `row ${i}`).join('\n')
   await $.ui.mount(toolResult(id, 'PowerShell', { stdout, stderr: '', interrupted: false }))
   expect(JSON.stringify(seen.at(-1))).toContain('lines hidden')

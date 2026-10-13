@@ -6,6 +6,7 @@ import { inlineRuns } from '../hooks/blocks'
 import { hyperlinksFrom, safeHref, touchOf } from '../hooks/links'
 import { tableArt } from '../hooks/markdown'
 import noir from '../hooks/themes/noir'
+import { viaPane } from './pane'
 
 // Links, this turn's files, copy controls and folding.
 
@@ -36,8 +37,6 @@ function stub(on: On, env: Record<string, string> = {}, copied: string[] = []) {
 
 const start = ($: Engine) => $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
 
-const skin = ($: Engine, args: string) =>
-  $.command.run({ command: 'skin', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
 
 const reply = (text: string, surface: 'terminal' | 'desktop' = 'terminal', requestId = 'm1') =>
   ({ ...SITE, surface, component: 'AssistantMessage', requestId, props: { text, isFirstOfReply: true } }) as const
@@ -113,7 +112,7 @@ test('a URL in prose is a Link where the terminal draws them, and text elsewhere
   expect(((await linked.find({ type: 'Link' })) as Node | undefined)?.props.href).toBe('https://code.claude.com/docs')
   await linked.unmount()
 
-  await skin($, 'links off')
+  await viaPane($, 'links off')
   const plain = await $.ui.mount(reply(text))
   expect(await plain.find({ type: 'Link' })).toBeUndefined()
   expect(await plain.find({ type: 'Text', text: /code\.claude\.com/ })).toBeDefined()
@@ -175,7 +174,7 @@ test('a table copies as markdown or as drawn, and /skin copy off takes the butto
   expect(await desktop.find({ key: 'copy-0-art' })).toBeDefined()
   await desktop.unmount()
 
-  await skin($, 'copy off')
+  await viaPane($, 'copy off')
   const bare = await $.ui.mount(reply(TABLE, 'terminal', 'm4'))
   expect(await bare.find({ type: 'Button' })).toBeUndefined()
 })
@@ -217,7 +216,7 @@ test('long code and tables fold behind ▾ N more on the terminal; fold off show
   expect(await ui.find({ type: 'Text', text: 'row15' })).toBeUndefined()
   await ui.unmount()
 
-  await skin($, 'fold off')
+  await viaPane($, 'fold off')
   const whole = await $.ui.mount(reply(`${code}\n\n${table}`, 'terminal', 'm6'))
   expect(await whole.find({ type: 'Text', text: 'const line30 = 30' })).toBeDefined()
   expect(await whole.find({ type: 'Text', text: 'row20' })).toBeDefined()

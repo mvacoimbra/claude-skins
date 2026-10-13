@@ -7,6 +7,7 @@ import { DEFAULT_PREFS } from '../hooks/command'
 import { replySegments } from '../hooks/reply'
 import dracula from '../hooks/themes/dracula'
 import noir from '../hooks/themes/noir'
+import { viaPane } from './pane'
 
 // Diff fences, blocks side by side, and `$.skins.markdown` for other mods.
 
@@ -28,8 +29,6 @@ function stub(on: On, copied: string[] = []) {
   on('ui.render', () => STOCK)
 }
 
-const skin = ($: Engine, args: string) =>
-  $.command.run({ command: 'skin', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
 
 const reply = (text: string, surface: 'terminal' | 'desktop' = 'terminal', columns = 100, requestId = 'm1') =>
   ({ plugin: 'skins', viewport: { columns, rows: 30 }, surface, component: 'AssistantMessage', requestId, props: { text, isFirstOfReply: true } }) as const
@@ -76,7 +75,7 @@ async function token(ui: { findAll: (q: { type: string }) => Promise<unknown[]> 
 
 test('a diff fence highlights its code in the language its path names, the markers in the change colours', async ($, on) => {
   stub(on)
-  await skin($, 'dracula')
+  await viaPane($, 'dracula')
 
   const ui = await $.ui.mount(reply(FS_DIFF))
   expect((await token(ui, 'match'))?.props.color).toBe(dracula.palette.web)
@@ -93,7 +92,7 @@ test('a ```diff-<language> fence names its language, as Prism reads it', async (
   expect(diffFenceTag('fsharp')).toBeNull()
 
   stub(on)
-  await skin($, 'dracula')
+  await viaPane($, 'dracula')
 
   const ui = await $.ui.mount(reply('```diff-fsharp\n-let a = 1\n+let a = 2\n```'))
   expect((await token(ui, 'let'))?.props.color).toBe(dracula.palette.web)
@@ -107,7 +106,7 @@ test('a diff fence with no path, or with highlight off, keeps whole-line change 
   expect(await token(bare, 'let')).toBeUndefined()
   expect(await bare.find({ type: 'Text', text: /1 {3}- let a = 1/ })).toBeDefined()
 
-  await skin($, 'highlight off')
+  await viaPane($, 'highlight off')
   const plain = await $.ui.mount(reply(FS_DIFF, 'terminal', 100, 'm2'))
   expect(await token(plain, 'match')).toBeUndefined()
 })

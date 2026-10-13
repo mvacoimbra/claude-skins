@@ -6,6 +6,7 @@ import { highlight, languageOf, outputTokens } from '../hooks/highlight'
 import type { Role } from '../hooks/highlight'
 import noir from '../hooks/themes/noir'
 import dracula from '../hooks/themes/dracula'
+import { viaPane } from './pane'
 
 // The terminal's highlighting: each language family, shell output, and the toggle.
 
@@ -168,8 +169,6 @@ function stub(on: On) {
   on('ui.render', () => STOCK)
 }
 
-const skin = ($: Engine, args: string) =>
-  $.command.run({ command: 'skin', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
 
 type Span = { props: { color?: string }; children?: readonly unknown[] }
 
@@ -194,7 +193,7 @@ function colorOf(node: unknown, text: string): string | undefined {
 
 test('a fence on the terminal is drawn in the skin\u2019s colours, its language on the frame', async ($, on) => {
   stub(on)
-  await skin($, 'dracula')
+  await viaPane($, 'dracula')
   const text = 'Try:\n\n```python\ndef go():\n    return 1  # one\n```'
   const ui = await $.ui.mount({ ...SITE, surface: 'terminal', component: 'AssistantMessage', requestId: 'h1', props: { text, isFirstOfReply: true } })
 
@@ -229,7 +228,7 @@ test('shell output is coloured in both cards, and plain with highlight off', asy
   expect(source).toContain(`<tspan style="fill:${noir.palette.err}">error</tspan>`)
   await desktop.unmount()
 
-  await skin($, 'highlight off')
+  await viaPane($, 'highlight off')
   const plain = await $.ui.mount(result('terminal', 'o3'))
   expect(colorOf(await plain.find({ type: 'Text', text: 'src/a.ts:3 error in 12ms' }), 'src/a.ts:3 error in 12ms')).toBe(noir.palette.fg)
   const flat = await $.ui.mount(result('desktop', 'o4'))

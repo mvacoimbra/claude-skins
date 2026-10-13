@@ -5,6 +5,7 @@ import type { Engine, Plugin } from 'claude-code/testing'
 import { widthOf } from '../hooks/markdown'
 import { mermaidArt } from '../hooks/mermaid-art'
 import noir from '../hooks/themes/noir'
+import { isMarked, viaPane } from './pane'
 
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -248,14 +249,14 @@ test('on the desktop every prompt keeps the app message, with its copy and rewin
   stubEngine(on)
 
   for (const mode of ['left', 'right', 'plain']) {
-    await runSkin($, `prompt ${mode}`)
+    await viaPane($, `prompt ${mode}`)
     const typed = await $.ui.mount({ ...SITE, surface: 'desktop', component: 'UserMessage', requestId: 'm1', props: { text: 'fix the build', origin: { kind: 'composer' }, isExpanded: false } })
     expect(await typed.find({ type: 'Text', text: 'stock row' }), mode).toBeDefined()
     await typed.unmount()
   }
 })
 
-test('/skin prompt right moves the outline to the right, and the settings pane moves it back', async ($, on) => {
+test('the settings pane moves the prompt outline to the right and back', async ($, on) => {
   stubEngine(on)
   const alignOf = async () => {
     const typed = await $.ui.mount({ ...SITE, surface: 'terminal', component: 'UserMessage', requestId: 'm1', props: { text: 'fix the build', origin: { kind: 'composer' }, isExpanded: false } })
@@ -265,28 +266,27 @@ test('/skin prompt right moves the outline to the right, and the settings pane m
     return column?.props.alignItems
   }
 
-  await runSkin($, 'prompt right')
+  await viaPane($, 'prompt right')
   expect(await alignOf()).toBe('flex-end')
 
   const pane = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await pane.find({ key: 'prompt' }))?.props.label).toBe('prompt right')
-  await pane.press({ key: 'prompt' })
+  await pane.press({ key: 'tab-look' })
+  expect((await pane.find({ key: 'prompt-right' }))?.props.label).toBe('● right')
+  await pane.press({ key: 'prompt-left' })
   await pane.unmount()
   expect(await alignOf()).toBe('flex-start')
 })
 
-test('/skin prompt plain draws the prompt without an outline, and the settings pane cycles left, right, plain', async ($, on) => {
+test('the settings pane offers left, right and no outline for the prompt, one marked at a time', async ($, on) => {
   stubEngine(on)
   const pane = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  const press = async () => {
-    await pane.press({ key: 'prompt' })
+  await pane.press({ key: 'tab-look' })
+  const marks = async () =>
+    Promise.all(['left', 'right', 'plain'].map(async mode => (await pane.find({ key: `prompt-${mode}` }))?.props.label))
 
-    return (await pane.find({ key: 'prompt' }))?.props.label
-  }
-
-  await runSkin($, 'prompt left')
-  expect(await press()).toBe('prompt right')
-  expect(await press()).toBe('prompt plain')
+  expect(await marks()).toEqual(['● left', '○ right', '○ no outline'])
+  await pane.press({ key: 'prompt-plain' })
+  expect(await marks()).toEqual(['○ left', '○ right', '● no outline'])
 
   const typed = await $.ui.mount({ ...SITE, surface: 'terminal', component: 'UserMessage', requestId: 'm1', props: { text: 'fix the build', origin: { kind: 'composer' }, isExpanded: false } })
   const column = (await typed.find({ type: 'Box' })) as { props: { alignItems?: string }; children?: readonly { props?: { borderStyle?: string } }[] } | undefined
@@ -296,7 +296,8 @@ test('/skin prompt plain draws the prompt without an outline, and the settings p
   expect(await typed.find({ type: 'Text', text: 'fix the build' })).toBeDefined()
   await typed.unmount()
 
-  expect(await press()).toBe('prompt left')
+  await pane.press({ key: 'prompt-left' })
+  expect(await marks()).toEqual(['● left', '○ right', '○ no outline'])
   await pane.unmount()
 })
 
@@ -338,7 +339,7 @@ test('the markdown pack draws alerts and task lists everywhere, headings and par
   expect(((await desktop.find({ type: 'Markdown' })) as Found)?.props.text).toBe('## Plan\n\nRan 54 tests in 3.2s.')
   await desktop.unmount()
 
-  await runSkin($, 'markdown off')
+  await viaPane($, 'markdown off')
   const off = await $.ui.mount(reply('terminal'))
   expect(await off.find({ type: 'Text', text: 'stock row' })).toBeDefined()
 })
@@ -436,7 +437,7 @@ test('the turn footer names the time in the skin’s words', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /^◆ .+ in 1m 4s$/ })).toBeDefined()
 })
 
-test('/skin words claude hands Claude Code’s own spinner and footer words through, /skin words skin takes the skin’s back', async ($, on) => {
+test('spinner words set to Claude Code’s hand its own spinner and footer words through, and the skin’s take them back', async ($, on) => {
   stubEngine(on)
 
   const spinner = () =>
@@ -458,10 +459,10 @@ test('/skin words claude hands Claude Code’s own spinner and footer words thro
 
   expect(await seen(), 'noir draws its own words by default').toEqual({ spinner: false, footer: false })
 
-  await runSkin($, 'words claude')
+  await viaPane($, 'words claude')
   expect(await seen(), 'noir is a built-in skin, and its words step aside').toEqual({ spinner: true, footer: true })
 
-  await runSkin($, 'words skin')
+  await viaPane($, 'words skin')
   expect(await seen()).toEqual({ spinner: false, footer: false })
 })
 
@@ -484,6 +485,7 @@ test('the settings pane picks a skin, switches the rail and paints a slot', asyn
 
   const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
   await pane.press({ key: 'skin-dracula' })
+  await pane.press({ key: 'tab-look' })
   await pane.press({ key: 'toggle-rail' })
   await pane.unmount()
 
@@ -494,10 +496,55 @@ test('the settings pane picks a skin, switches the rail and paints a slot', asyn
   await row.unmount()
 
   const again = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await again.press({ key: 'tab-colors' })
   await again.input({ key: 'hex', text: '#ff0000' })
   await again.unmount()
 
-  expect((await runSkin($, 'list')).text).toContain('● my-dracula')
+  expect(await isMarked($, 'theme', 'skin-my-dracula')).toBe(true)
+})
+
+test('every tab of the settings pane draws on both surfaces, with its own options', async ($, on) => {
+  stubEngine(on)
+  const keys: Record<string, string[]> = {
+    theme: ['skin-noir', 'skin-off', 'folder-pin', 'folder-share'],
+    look: ['prompt-right', 'icons-ascii', 'words-claude', 'toggle-rail', 'toggle-shimmer', 'toggle-calm', 'lang-pt'],
+    content: ['tables-text', 'toggle-markdown', 'toggle-highlight', 'toggle-shell', 'toggle-commands', 'toggle-charts', 'toggle-hints', 'toggle-math', 'toggle-links', 'toggle-copy', 'toggle-fold', 'toggle-quiet', 'toggle-clip'],
+    band: ['toggle-band', 'toggle-countdown'],
+    colors: ['slot-user', 'slot-other', 'hex'],
+    actions: ['action-copy', 'action-copy-code', 'action-gallery'],
+  }
+
+  for (const surface of SURFACES) {
+    for (const width of [100, 50]) {
+      const pane = await $.ui.mount({ ...PANE, surface, props: { ...PANE.props, bodyColumns: width } })
+
+      for (const [tab, wanted] of Object.entries(keys)) {
+        await pane.press({ key: `tab-${tab}` })
+
+        for (const key of wanted) {
+          expect(await pane.find({ key }), `${surface} ${width} ${tab} ${key}`).toBeDefined()
+        }
+      }
+
+      await pane.press({ key: 'tab-theme' })
+      await pane.unmount()
+    }
+  }
+})
+
+test('the settings pane speaks Portuguese once picked, and English again after', async ($, on) => {
+  stubEngine(on)
+  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  expect((await pane.find({ key: 'tab-look' }))?.props.label).toBe('Look')
+  await pane.press({ key: 'tab-look' })
+  await pane.press({ key: 'lang-pt' })
+  expect((await pane.find({ key: 'tab-look' }))?.props.label).toBe('Aparência')
+  expect((await pane.find({ key: 'toggle-rail' }))?.props.label).toBe('● ligado')
+  expect(await pane.find({ type: 'Text', text: 'Trilho do turno' })).toBeDefined()
+  await pane.press({ key: 'lang-en' })
+  expect((await pane.find({ key: 'tab-look' }))?.props.label).toBe('Look')
+  await pane.unmount()
 })
 
 test('the agent’s design tool saves a skin and it applies at once', async ($, on) => {
@@ -519,12 +566,13 @@ test('the agent’s design tool saves a skin and it applies at once', async ($, 
   expect(refused.deny).toContain('built-in')
 })
 
-test('/skin with no argument opens the settings pane', async ($, on) => {
+test('/skin opens the settings pane, and words after it change nothing', async ($, on) => {
   stubEngine(on)
 
-  const answer = await runSkin($, '')
-
-  expect(answer.text).toBeUndefined()
+  expect((await runSkin($, '')).text).toBeUndefined()
+  expect((await runSkin($, 'nord')).text).toBeUndefined()
+  expect(await isMarked($, 'theme', 'skin-noir')).toBe(true)
+  expect(await isMarked($, 'theme', 'skin-nord')).toBe(false)
 })
 
 test('a table wider than its share spans the column instead of running off it', async ($, on) => {
@@ -642,7 +690,7 @@ test('on the desktop a shell fence keeps the app’s own block, for its Run butt
 test('with tables as text the desktop gets a text grid and the app’s own code block, both selectable', async ($, on) => {
   stubEngine(on)
 
-  await runSkin($, 'tables text')
+  await viaPane($, 'tables text')
 
   const ui = await $.ui.mount({
     ...SITE,
@@ -657,7 +705,7 @@ test('with tables as text the desktop gets a text grid and the app’s own code 
   expect(code?.props.text).toContain('```ts')
   await ui.unmount()
 
-  await runSkin($, 'tables off')
+  await viaPane($, 'tables off')
 
   const stock = await $.ui.mount({ ...SITE, surface: 'desktop', component: 'AssistantMessage', requestId: 'tx2', props: { text: '| a |\n|---|\n| 1 |', isFirstOfReply: true } })
   expect(await stock.find({ type: 'Text', text: 'stock row' })).toBeDefined()
@@ -699,7 +747,7 @@ test('a code fence is a card on the desktop, highlighted rows in the terminal, m
   expect(spanColor((await terminal.find({ type: 'Text', text: 'const a = 1' })) as Found, 'const')).toBe(noir.palette.web)
   await terminal.unmount()
 
-  await runSkin($, 'highlight off')
+  await viaPane($, 'highlight off')
   const plain = await $.ui.mount(reply('terminal'))
   expect(await plain.find({ type: 'Markdown' })).toBeDefined()
 })
@@ -856,12 +904,12 @@ test('with charts off, or Mermaid the parser cannot read, the fence keeps its co
   expect(((await unread.find({ type: 'Svg' })) as { props: { source: string } } | undefined)?.props.source).toContain('sequenceDiagram')
   await unread.unmount()
 
-  await runSkin($, 'tables off')
+  await viaPane($, 'tables off')
   const tablesOff = await $.ui.mount(chartReply('terminal'))
   expect(await tablesOff.find({ type: 'Text', text: 'Plan' })).toBeDefined()
   await tablesOff.unmount()
 
-  await runSkin($, 'charts off')
+  await viaPane($, 'charts off')
   const off = await $.ui.mount(chartReply('desktop'))
   expect(await off.find({ type: 'Svg' })).toBeUndefined()
 })
@@ -876,10 +924,10 @@ test('while charts are on, the system prompt tells Claude it can answer with one
   expect((await compose()).sections.map(section => section.id)).toEqual(['base', 'skins:charts'])
   expect((await compose(['print'])).sections.map(section => section.id)).toEqual(['base'])
 
-  await runSkin($, 'hints off')
+  await viaPane($, 'hints off')
   expect((await compose()).sections.map(section => section.id)).toEqual(['base'])
-  await runSkin($, 'hints on')
-  await runSkin($, 'charts off')
+  await viaPane($, 'hints on')
+  await viaPane($, 'charts off')
   expect((await compose()).sections.map(section => section.id)).toEqual(['base'])
 })
 
@@ -951,10 +999,10 @@ test('cards draw no background of their own', async ($, on) => {
   expect(svg?.props.source).not.toContain('background:')
 })
 
-test('/skin gallery opens a pane with every element, numbered, on both surfaces', async ($, on) => {
+test('the gallery opens from the settings pane with every element, numbered, on both surfaces', async ($, on) => {
   stubEngine(on)
 
-  expect((await runSkin($, 'gallery')).text).toBeUndefined()
+  await viaPane($, 'gallery')
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...PANE, requestId: 'skins-gallery', surface })
@@ -1091,7 +1139,7 @@ test('an auto theme follows the system when it changes mid-session', async ($, o
   expect(spanColor(await after.find({ type: 'Text', text: /Bash/ }), 'Bash')).toBe('#ededed')
 })
 
-test('/skin pin keeps a look to this folder, /skin unpin returns to the default', async ($, on) => {
+test('Use only here keeps a look to this folder, Follow the default returns to it', async ($, on) => {
   const store: Record<string, unknown> = {}
   stubEngine(on, { store: true })
   on('store.get', ($, e) => ({ value: store[e.key] }))
@@ -1105,14 +1153,14 @@ test('/skin pin keeps a look to this folder, /skin unpin returns to the default'
   on('config.list', () => ({ value: [] }))
 
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
-  await runSkin($, 'pin')
-  await runSkin($, 'nord')
+  await viaPane($, 'pin')
+  await viaPane($, 'nord')
 
   expect((store.folders as Record<string, { skin: string }>)['/work']?.skin).toBe('nord')
   expect(store.prefs).toBeUndefined()
 
-  await runSkin($, 'unpin')
-  await runSkin($, 'dracula')
+  await viaPane($, 'unpin')
+  await viaPane($, 'dracula')
 
   expect(store.folders).toEqual({})
   expect((store.prefs as { skin: string }).skin).toBe('dracula')
@@ -1177,7 +1225,7 @@ test('quiet output folds a read-only call to its row, a failure to its error lin
   expect(await before.find({ type: 'Text', text: 'On branch main' })).toBeDefined()
   await before.unmount()
 
-  await runSkin($, 'quiet on')
+  await viaPane($, 'quiet on')
 
   const grep = await $.ui.mount(toolUse(call('Grep', { pattern: 'TODO' })))
   expect(await grep.find({ type: 'Text', text: /Searched/ })).toBeDefined()
@@ -1197,7 +1245,7 @@ test('quiet output folds a read-only call to its row, a failure to its error lin
   expect(await loud.find({ type: 'Text', text: 'built' })).toBeDefined()
 })
 
-test('/skin copy copies the last reply and says so, or says there is nothing yet', async ($, on) => {
+test('Copy last reply copies the last reply and says so, or says there is nothing yet', async ($, on) => {
   stubEngine(on, { toast: true })
   const copied: string[] = []
   const toasts: string[] = []
@@ -1215,12 +1263,12 @@ test('/skin copy copies the last reply and says so, or says there is nothing yet
   const reply = 'Run:\n\n```bash\npnpm build\n```'
   const turn = { durationMs: 1000, isAborted: false, reason: 'answer' } as const
 
-  await runSkin($, 'copy')
+  await viaPane($, 'copy')
   await $.turn.complete({ ...turn, turnId: 't1', answer: reply })
   // A subagent's answer is not the reply on screen.
   await $.turn.complete({ ...turn, turnId: 't2', answer: 'subagent notes', agentId: 'a1' })
-  await runSkin($, 'copy')
-  await runSkin($, 'copy code')
+  await viaPane($, 'copy')
+  await viaPane($, 'copy code')
 
   expect(toasts).toEqual(['Nothing to copy yet', 'Copied the reply', 'Copied the code'])
   expect(copied).toEqual([reply, 'pnpm build'])
@@ -1332,7 +1380,7 @@ test('with countdown on, the band says when each limit resets, on both surfaces'
   expect(await svgSource(desktop), 'off by default').not.toContain('1h40')
   await desktop.unmount()
 
-  await runSkin($, 'countdown on')
+  await viaPane($, 'countdown on')
   const band = await $.ui.mount(BAND('desktop', false))
   expect(await svgSource(band)).toContain('5h · 1h40')
   expect(((await band.find({ type: 'Svg' })) as { props: { alt: string } } | undefined)?.props.alt).toContain('5h 18%, resets in 1h40')
@@ -1345,7 +1393,7 @@ test('a countdown ticking down redraws the band without filling its rings again'
   on('session.usage', () => ({ value: resetting }))
   const clock = stubEngine(on, { usage: true })
   await startDesktop($, on)
-  await runSkin($, 'countdown on')
+  await viaPane($, 'countdown on')
 
   const band = await $.ui.mount(BAND('desktop', false))
   expect(isSettled(await svgSource(band)), 'the first rings fill in').toBe(false)
@@ -1907,7 +1955,7 @@ test('a display formula is stacked art in the terminal and a vector card on the 
   expect(svg?.props.alt.startsWith('math:\n')).toBe(true)
   await desktop.unmount()
 
-  await runSkin($, 'math off')
+  await viaPane($, 'math off')
   const off = await $.ui.mount(reply('terminal'))
   // Off, the formula stays as written for the markdown pack to draw.
   expect(await off.find({ type: 'Text', text: 'MATH' })).toBeUndefined()
@@ -1934,7 +1982,7 @@ test('slash-command output with key: value lines is a table, prose keeps its row
   expect(await prose.find({ type: 'Text', text: 'stock row' })).toBeDefined()
   await prose.unmount()
 
-  await runSkin($, 'commands off')
+  await viaPane($, 'commands off')
   const off = await $.ui.mount(output(cost))
   expect(await off.find({ type: 'Text', text: 'stock row' })).toBeDefined()
 })
@@ -2017,18 +2065,18 @@ test('long shell output folds to its head and tail on the terminal, each stream 
 
   // With folding off nothing is hidden and there is no control.
   await ui.unmount()
-  await runSkin($, 'fold off')
+  await viaPane($, 'fold off')
   const whole = await $.ui.mount(shellResult(id, { stdout, stderr: '', interrupted: false }))
   expect(await whole.find({ type: 'Text', text: 'line 20' })).toBeDefined()
   expect(await whole.find({ key: 'fold-output' })).toBeUndefined()
 })
 
-test('/skin shell off gives shell output back to Claude Code on both surfaces', async ($, on) => {
+test('the shell card off gives shell output back to Claude Code on both surfaces', async ($, on) => {
   stubEngine(on)
   const [id = ''] = await ranShells($, on, ['pnpm build'])
   const output = { stdout: 'built', stderr: '', interrupted: false }
 
-  await runSkin($, 'shell off')
+  await viaPane($, 'shell off')
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount(shellResult(id, output, false, surface))
@@ -2037,7 +2085,7 @@ test('/skin shell off gives shell output back to Claude Code on both surfaces', 
     await ui.unmount()
   }
 
-  await runSkin($, 'shell on')
+  await viaPane($, 'shell on')
   const back = await $.ui.mount(shellResult(id, output))
   expect(await back.find({ type: 'Text', text: '$ pnpm build' })).toBeDefined()
   await back.unmount()
@@ -2047,11 +2095,11 @@ test('/skin shell off gives shell output back to Claude Code on both surfaces', 
   expect(await background.find({ type: 'Text', text: 'stock row' })).toBeDefined()
 })
 
-test('/skin calm stills the spinner, drops the rail, folds read-only output and keeps failures whole', async ($, on) => {
+test('calm mode stills the spinner, drops the rail, folds read-only output and keeps failures whole', async ($, on) => {
   stubEngine(on)
   const [look = '', loud = ''] = await ranShells($, on, ['git status', 'pnpm build'])
 
-  await runSkin($, 'calm')
+  await viaPane($, 'calm')
 
   const row = await $.ui.mount(toolUse(call('Bash', { command: 'pnpm test' })))
   expect(await row.find({ type: 'Text', text: '┃' })).toBeUndefined()
@@ -2078,13 +2126,13 @@ test('/skin calm stills the spinner, drops the rail, folds read-only output and 
   expect(await built.find({ type: 'Text', text: 'built' })).toBeDefined()
 })
 
-test('/skin calm off puts back the settings it changed, and keeps changes made meanwhile', async ($, on) => {
+test('calm mode off puts back the settings it changed, and keeps changes made meanwhile', async ($, on) => {
   stubEngine(on)
   const [look = ''] = await ranShells($, on, ['git status'])
 
-  await runSkin($, 'calm on')
-  await runSkin($, 'nord')
-  await runSkin($, 'calm off')
+  await viaPane($, 'calm on')
+  await viaPane($, 'nord')
+  await viaPane($, 'calm off')
 
   const row = await $.ui.mount(toolUse(call('Bash', { command: 'pnpm test' })))
   expect(await row.find({ type: 'Text', text: '┃' })).toBeDefined()
@@ -2098,7 +2146,6 @@ test('/skin calm off puts back the settings it changed, and keeps changes made m
   expect(await output.find({ type: 'Text', text: 'On branch main' })).toBeDefined()
   await output.unmount()
 
-  const listed = await runSkin($, 'list')
-  expect(JSON.stringify(listed)).toContain('● nord')
-  expect(JSON.stringify(listed)).toContain('calm off')
+  expect(await isMarked($, 'theme', 'skin-nord')).toBe(true)
+  expect(await isMarked($, 'look', 'toggle-calm')).toBe(false)
 })
