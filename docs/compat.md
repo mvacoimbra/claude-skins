@@ -75,7 +75,7 @@ as published, so part of each gap is the machine, not the change.
 ### Long transcripts
 
 The eight row types above in turn, each row mounted and unmounted. The skin `off` rows are the
-same transcript with `/skin off`: the cost of the harness and Claude Code's stand-in alone.
+same transcript with skins off: the cost of the harness and Claude Code's stand-in alone.
 
 | Transcript | Surface | Skin | Total s | ms per row |
 |---|---|---|---:|---:|

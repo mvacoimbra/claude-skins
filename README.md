@@ -51,24 +51,20 @@ Then restart Claude Code. Open sessions keep the version they started with.
 claude plugin uninstall skins@hellosverre-mods
 ```
 
-To keep it installed but go back to Claude Code's own drawing, run `/skin off`.
+To keep it installed but go back to Claude Code's own drawing, pick **off** in `/skin`.
 
 ## Use
 
-| Command | What it does |
+`/skin` opens the settings. Everything is set there, in six tabs (1–6 switch between them):
+
+| Tab | What it sets |
 |---|---|
-| `/skin` | Settings: pick a skin with a live preview, toggle parts, repaint any colour |
-| `/skin <name>` | Switch skin: `noir`, `tokyo-night`, `dracula`, `catppuccin`, `rose-pine`, `nord`, `gruvbox`, `kanagawa`, `everforest`, `one-dark`, `solarized`, `night-owl`, `ayu`, `github`, `mono` |
-| `/skin list` | Every skin, yours included |
-| `/skin off` | Back to Claude Code's own drawing |
-| `/skin rail\|shimmer\|band\|countdown\|clip\|markdown\|quiet\|charts\|math\|commands\|shell\|highlight\|hints\|links\|copy\|fold on\|off` | Toggle one part |
-| `/skin calm` · `calm off` | No motion, one line per tool row, read-only output folded, failures always whole. `calm off` puts back what you had |
-| `/skin copy` · `copy code` | Copy Claude's last reply, or just its last code block |
-| `/skin tables on\|text\|off` | `text` draws tables and code as selectable text on the desktop |
-| `/skin prompt left\|right\|plain` | In the terminal, which side your prompt's outline sits on, or `plain` for a leading marker instead. The desktop keeps Claude Code's own messages, with copy and rewind |
-| `/skin words claude\|skin` | Whose words the spinner and the turn footer show. `claude` keeps Claude Code's own, whatever the skin says; `skin` (the default) draws the skin's |
-| `/skin gallery` | Every element the skin draws, numbered, to point at |
-| `/skin pin` · `unpin` · `share` | Give this folder its own look, drop it, or make it the default |
+| Theme | The skin, with a live preview, or off for Claude Code's own drawing. Whether this folder keeps its own look or follows the default |
+| Look | Which side your prompt sits on in the terminal (or no outline), icons, whose spinner words show, the turn rail, the shimmer, calm mode, and the language of the settings (English or Português) |
+| Content | Tables and code as cards, selectable text or off; rich replies, code highlighting, the shell card, command output, charts and their hint, math, links, copy buttons, folding, quiet output, clipped output |
+| Usage band | The context and plan-limit meters above the prompt, and their reset countdown |
+| Colors | Every colour of the skin, with what it paints: pick one and type a hex |
+| Actions | Copy Claude's last reply or its last code block, and open the gallery of every element the skin draws |
 
 **Design one with Claude.** Ask "make me a skin that feels like a sunset". skins gives Claude a
 `design` tool, so it builds the skin and applies it while you watch. Repainting a built-in skin saves
@@ -109,14 +105,14 @@ Drawn by the mod's own card code (`scripts/previews.ts`), not screenshots.
 |---|---|---|
 | Tool calls | Icon per kind, spinner while running, lines changed, time taken. `▸` opens the row: the call's input in full and its answer (a read's text with line numbers, a search's matches, the shell card, the diff); a failed call opens by itself | A node on the turn's rail, with the same `▸` |
 | Edits | Diff card with `+N −M` and numbered lines | Claude Code's own diff |
-| Shell commands | Terminal card with status, stderr apart, long output folded; paths, numbers and error, warning and pass words coloured | Card with the command, the output coloured the same way, `✓` or `✗ exit N`, stderr in red under its own label, each stream folded to 8 + 4 lines (`/skin shell off` for Claude Code's own) |
+| Shell commands | Terminal card with status, stderr apart, long output folded; paths, numbers and error, warning and pass words coloured | Card with the command, the output coloured the same way, `✓` or `✗ exit N`, stderr in red under its own label, each stream folded to 8 + 4 lines (Shell card off in `/skin` for Claude Code's own) |
 | Quiet output (off by default) | Reads, searches and read-only commands fold to one row; a failure keeps its error line | The same |
 | Tables | Card with header rule, zebra rows, colour swatches | Cell grid with a header band |
-| Charts | ` ```mermaid ` as a card: flowchart, xy, pie, gantt, timeline, journey, kanban, mindmap, quadrant, radar, sankey, gitGraph, treemap, packet, block, architecture, C4 | The same seventeen drawn in cells, ASCII with `/skin icons ascii` |
+| Charts | ` ```mermaid ` as a card: flowchart, xy, pie, gantt, timeline, journey, kanban, mindmap, quadrant, radar, sankey, gitGraph, treemap, packet, block, architecture, C4 | The same seventeen drawn in cells, ASCII with icons set to ascii in `/skin` |
 | Math | `$$…$$`, `\[…\]` and ` ```math ` as a typeset card: fractions, roots, sums and integrals with limits, matrices, aligned lines; `$…$` inline turns into Unicode | Fractions and limits stacked in cells, inline `$…$` as Unicode |
 | Command output | `/cost`, `/context` and plugin output: tables, code and `key: value` runs as cards | The same as cell grids |
 | Alerts and task lists | `> [!NOTE]` as a titled box, `- [ ]` with ticks and a done count | The same |
-| Code blocks | Card with language, line numbers, highlighting; shell blocks keep the Run button | Framed, the language on the frame, highlighted in the skin's colours: TS/JS, JSON, shells, PowerShell, Python, Rust, Go, C/C++, C#, F#, Java, YAML, TOML, HTML/XML, CSS, SQL, diff, Markdown, Lua (`/skin highlight off` for Claude Code's own) |
+| Code blocks | Card with language, line numbers, highlighting; shell blocks keep the Run button | Framed, the language on the frame, highlighted in the skin's colours: TS/JS, JSON, shells, PowerShell, Python, Rust, Go, C/C++, C#, F#, Java, YAML, TOML, HTML/XML, CSS, SQL, diff, Markdown, Lua (Code highlighting off in `/skin` for Claude Code's own) |
 | Spinner | Animated icon per phase | The skin's word with a band of light |
 | Above the prompt | Context and plan-limit rings, Compact button, nudge at 70% | Block meters, same button |
 | Your prompts | Claude Code's own, so copy, rewind and selection stay | Rounded outline, or a plain marker |
@@ -129,7 +125,7 @@ Every card has a Copy button (tables also `as text`, the table as drawn; a reply
 drawing changes: the stored conversation and what the model reads are untouched. Agents, plan mode
 and the permission prompt keep Claude Code's own drawing.
 
-**Chart hints.** While charts are on, Claude gets a short model-only note (about 130 tokens, estimated from its 458 characters) saying ` ```mermaid ` fences draw here, so it reaches for a chart when one reads better. Never for headless `claude -p` runs. `/skin hints off` drops it and keeps charts drawing.
+**Chart hints.** While charts are on, Claude gets a short model-only note (about 130 tokens, estimated from its 458 characters) saying ` ```mermaid ` fences draw here, so it reaches for a chart when one reads better. Never for headless `claude -p` runs. Turning Chart hints off in `/skin` drops it and keeps charts drawing.
 
 **Light and dark.** Every skin has both and follows Claude Code's theme. On `auto` it follows your
 terminal (`COLORFGBG`) or the system. Force one with `SKINS_THEME=light` or `SKINS_THEME=dark`.
@@ -175,10 +171,10 @@ scripts/bench.sh
 | TeX commands the parser does not know | Drawn as written, `\name` | [`hooks/math.ts`](hooks/math.ts) |
 | Shell output on the terminal vs the desktop | The terminal card names the command and folds each stream to 8 + 4 lines; the desktop card says `Output` and folds both streams together to 6 + 6 | [`hooks/shell-rows.tsx`](hooks/shell-rows.tsx), [`hooks/svg-terminal.ts`](hooks/svg-terminal.ts) |
 | A failed shell call that hands back error text, not its record | stdout and stderr arrive merged, so the whole text is drawn as stderr | `shellResultOf` in [`hooks/shell.ts`](hooks/shell.ts) |
-| A command sent to the background, or output that is an image | Claude Code's own row, which says where it went or draws the image | `keepsOwnRow` in [`hooks/shell.ts`](hooks/shell.ts); test "/skin shell off gives shell output back…" |
+| A command sent to the background, or output that is an image | Claude Code's own row, which says where it went or draws the image | `keepsOwnRow` in [`hooks/shell.ts`](hooks/shell.ts); test "the shell card off gives shell output back…" |
 | Shell cards and tool timings after `/resume` | No command in the header and no time: both are recorded as the call runs | `commandAtom`, `durationAtom` in [`hooks/register.tsx`](hooks/register.tsx) |
 | Slash-command errors and `/skin`'s own output | Claude Code's own row | test "slash-command output with key: value lines is a table, prose keeps its row" |
-| `/skin calm` and Claude Code's spinner | Calm hands the spinner back to Claude Code, whose own spinner still moves | `Spinner` in [`hooks/register.tsx`](hooks/register.tsx) |
+| Calm mode and Claude Code's spinner | Calm hands the spinner back to Claude Code, whose own spinner still moves | `Spinner` in [`hooks/register.tsx`](hooks/register.tsx) |
 | The settings pane on mobile | A line saying to use the terminal or the desktop app | `Pane` in [`hooks/register.tsx`](hooks/register.tsx) |
 | File paths as links | Coloured, not clickable: the engine's `Link` takes only `https:` and `http://localhost` | `safeHref` in [`hooks/links.ts`](hooks/links.ts) |
 | Folding on the desktop | Code cards fold; table cards and the shell card keep their full height or their own 6 + 6 fold | [`hooks/fold.tsx`](hooks/fold.tsx) |
@@ -197,7 +193,7 @@ the README does not say.
 | Themes | 15, repaint any colour, or have Claude design one | 15 and `mono`, 20 colour slots | 15 | Your own, for Claude Code's whole UI | | Powerline themes |
 | Recolours Claude Code's own UI | No | No | No | **Yes** | No | No |
 | Tool rows | Icons, timings, rail; **open to the input and answer** | 4 styles | | | No | No |
-| Read-only output hidden | `/skin quiet` | `toolOutput: quiet` | | | No | No |
+| Read-only output hidden | Quiet output | `toolOutput: quiet` | | | No | No |
 | Edit diffs | Card on the desktop; the engine's diff in an opened row on the terminal | Claude Code's own | | | No | No |
 | ` ```diff ` fences | Diff card or numbered rows, `new only` copy | | Numbered, `⧉ new only` | | | No |
 | Shell output | Card on both surfaces, paths, numbers and errors coloured | Boxed in expanded groups | | | No | No |
@@ -206,11 +202,11 @@ the README does not say.
 | Mermaid | 17 kinds; sequence, state, class, ER on the terminal only | Flowchart, sequence, state, class, ER, xy; no pie | Flowchart, sequence, xy | | Flowchart, sequence, state, class, ER, xy; SVG on the desktop | No |
 | Math | Card on the desktop, stacked cells on the terminal | Typeset image in kitty and Ghostty via RaTeX, text elsewhere | | | Not handled | No |
 | Links | URLs as OSC 8 links; this turn's files coloured | Links and bare URLs clickable | **URLs and file paths clickable**; changed files coloured; link band | | | No |
-| Long blocks folded | Code, tables, shell output (`/skin fold`) | | Code, lists, tables | | | No |
+| Long blocks folded | Code, tables, shell output | | Code, lists, tables | | | No |
 | Right-to-left text | No | **Hebrew and Arabic** | Hebrew and Arabic | | | No |
 | Usage meters | Context and plan limits above the prompt | | | | No | **Many widgets**, Powerline |
 | Spinner words | The skin's, with a shimmer | | | **Your own verbs and animations** | No | No |
-| Copy | Cards, tables as markdown or as drawn, `copy reply`, `/skin copy` | Buttons, `/prismantis copy`, HTML tables | Code, tables, diagrams, lists, quotes | | | No |
+| Copy | Cards, tables as markdown or as drawn, `copy reply`, Copy last reply in `/skin` | Buttons, `/prismantis copy`, HTML tables | Code, tables, diagrams, lists, quotes | | | No |
 | API for other mods | `$.skins.markdown` | `$.prismantis.markdown` | | | | No |
 
 Where they are better: **tweakcc** recolours all of Claude Code, not only what a hook can
