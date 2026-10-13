@@ -107,6 +107,8 @@ export type SkinsSection = { id: string; title: string; items: SkinsItem[] }
 export type SkinsPanel = { title: string; summary?: string; tone?: SkinsTone; sections: SkinsSection[]; refreshMs?: number }
 export type SkinsActArgs = { id: string; value?: string }
 export type SkinsActResult = { message?: string }
+// One named component skins draws, for the Components tab of /mods (the hub's catalog).
+export type SkinsCatalogEntry = { id: string; name: string; help?: string; tree: unknown }
 
 // `$.skins.markdown`'s argument: where the tree draws, the markdown, the width in columns.
 export type SkinsMarkdownArgs = { surface: 'terminal' | 'desktop' | 'vscode' | 'mobile'; text: string; columns: number }
@@ -124,6 +126,8 @@ declare module 'claude-code' {
       act: (args: SkinsActArgs) => Promise<SkinsActResult>
       // True while the usage band shows cache-tax's countdown, so cache-tax leaves out its own row.
       band: () => Promise<boolean>
+      // Every component skins draws, each named and drawn live, for the Components tab of /mods.
+      catalog: (args: SkinsPanelArgs) => Promise<SkinsCatalogEntry[]>
     }
   }
 

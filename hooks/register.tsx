@@ -1,7 +1,7 @@
 import { atom, memberOf, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement, RenderSurface, Timer } from 'claude-code'
 
-import type { CustomSkin, Disclosure, Prefs, SkinSlot, SkinsActArgs, SkinsActResult, SkinsMarkdownArgs, SkinsPanel, SkinsPanelArgs, Touch, TurnStats, UsageSnap } from '../types'
+import type { CustomSkin, Disclosure, Prefs, SkinSlot, SkinsActArgs, SkinsActResult, SkinsCatalogEntry, SkinsMarkdownArgs, SkinsPanel, SkinsPanelArgs, Touch, TurnStats, UsageSnap } from '../types'
 import { DEFAULT_PREFS, parsePrefs, TOGGLES, withCalm } from './command'
 import { buildCustom, resolveSkin, skinNames, withSlot } from './custom'
 import { forTheme, gnomeDark, macDark, resolveLight, windowsDark } from './light'
@@ -20,6 +20,7 @@ import { galleryPane } from './gallery'
 import { keepsOwnRow, SHELLS, shellResultOf } from './shell'
 import { OUTPUT_FOLD, shellRows } from './shell-rows'
 import { CHOICES, skinsPanel } from './panel'
+import { skinsCatalog, staticTree } from './catalog'
 import type { Choice, FolderWord } from './panel'
 import { STRINGS } from './i18n'
 import type { Lang } from './i18n'
@@ -577,6 +578,23 @@ async function panelFor($: EngineInterface, args: SkinsPanelArgs, lang: Lang): P
   })
 }
 
+// Every component skins draws, named, for the Components tab of /mods.
+async function catalogFor($: EngineInterface, args: SkinsPanelArgs): Promise<SkinsCatalogEntry[]> {
+  const active = await activeSkin($)
+  const prefs = active?.prefs ?? (await read($, prefsAtom))
+  const custom = await read($, customAtom)
+  const skin = active?.skin ?? resolveSkin(DEFAULT_PREFS.skin, custom)
+
+  if (skin === undefined || !SURFACES.includes(args.surface)) {
+    throw new Error('skins.catalog takes { lang, surface, columns } with a surface skins draws on')
+  }
+
+  const ui = $.ui.resolve({ surface: args.surface, component: 'AssistantMessage' })
+  const look = lookOf(ui, { prefs: { ...prefs, skin: skin.name }, custom, skin }, args.surface)
+
+  return skinsCatalog(look, Math.max(20, Math.floor(args.columns)), args.lang === 'pt' ? 'pt' : 'en').map(entry => ({ ...entry, tree: staticTree(entry.tree) }))
+}
+
 const isChoice = (field: string): field is Choice => Object.hasOwn(CHOICES, field)
 
 // A press in skins' tab: `skin`, `toggle:<word>`, `calm`, `choice:<field>`, `edit:<slot>`,
@@ -693,6 +711,7 @@ export const register: Register = on => {
         panel: async () => ({ title: 'Skins', sections: [] }),
         act: async () => ({}),
         band: async () => false,
+        catalog: async () => [],
       },
     }
   })
@@ -706,6 +725,8 @@ export const register: Register = on => {
   })
 
   on('skins.act', async ($, e) => ({ value: await actOnPanel($, e, panelLang) }))
+
+  on('skins.catalog', async ($, e) => ({ value: await catalogFor($, e) }))
 
   on('skins.band', async $ => {
     const active = await activeSkin($)
@@ -910,7 +931,7 @@ export const register: Register = on => {
 
     const look = lookOf(ui, active, e.surface)
 
-    return withSettle($, e, galleryPane({ ...look, ...(look.svg === undefined ? {} : { isFirstDraw: await firstDraws($, e, active.prefs) }) }, e.props.bodyColumns))
+    return withSettle($, e, galleryPane({ ...look, ...(look.svg === undefined ? {} : { isFirstDraw: await firstDraws($, e, active.prefs) }) }, e.props.bodyColumns, panelLang))
   })
 
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {

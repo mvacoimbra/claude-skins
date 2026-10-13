@@ -1,6 +1,7 @@
 import type { Prefs, SettingsTab, SkinSlot, SkinsItem, SkinsPanel } from '../types'
 import { TOGGLES } from './command'
 import type { ToggleWord } from './command'
+import { staticTree } from './catalog'
 import { SLOTS } from './custom'
 import { STRINGS } from './i18n'
 import type { Lang, Strings } from './i18n'
@@ -109,7 +110,7 @@ export function skinsPanel(look: Look, model: PanelModel): SkinsPanel {
         options: [...model.names.map(name => ({ value: name, label: name })), { value: 'off', label: t.theme.offSkin }],
       },
       { kind: 'text', text: t.theme.preview, tone: 'muted' },
-      { kind: 'tree', tree: preview(look, model.columns) },
+      { kind: 'tree', tree: staticTree(preview(look, model.columns)) },
       { kind: 'info', label: t.theme.folder, value: model.pinned ? t.theme.pinned : t.theme.followsDefault },
       model.pinned ? { kind: 'action', id: 'folder:unpin', label: t.theme.unpin } : { kind: 'action', id: 'folder:pin', label: t.theme.pin },
       { kind: 'action', id: 'folder:share', label: t.theme.share },
