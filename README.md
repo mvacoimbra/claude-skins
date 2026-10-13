@@ -62,7 +62,7 @@ There are no slash commands: everything is set in the Skins tab of `/mods`, in s
 | Theme | The skin, with a live preview, or off for Claude Code's own drawing. Whether this folder keeps its own look or follows the default |
 | Look | Which side your prompt sits on in the terminal (or no outline), icons, whose spinner words show, the turn rail, the shimmer and calm mode |
 | Content | Tables and code as cards, selectable text or off; rich replies, code highlighting, the shell card, command output, charts and their hint, math, links, copy buttons, folding, quiet output, clipped output |
-| Usage band | The context and plan-limit meters above the prompt, and their reset countdown. With [cache-tax](https://github.com/mvacoimbra/cache-tax) installed the band also shows how long until the prompt cache goes cold (`cache: cold in 42m`, `cache: kept warm 5h10` while a keep-warm window runs, `cache: cold`) |
+| Usage band | The context and plan-limit meters above the prompt, and how long until each limit resets, to the second (`18% 5h · 4h05m09s`; on by default). With [cache-tax](https://github.com/mvacoimbra/cache-tax) installed the band also shows how long until the prompt cache goes cold (`cache: cold in 42m`, `cache: kept warm 5h10` while a keep-warm window runs, `cache: cold`) |
 | Colors | Every colour of the skin, with what it paints: pick one and type a hex |
 | Actions | Copy Claude's last reply or its last code block, and open the gallery of every element the skin draws |
 
