@@ -1,11 +1,12 @@
 import type { On, RenderElement } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock } from 'claude-code/testing'
 import type { Engine, Plugin } from 'claude-code/testing'
 
+import { cacheLine } from '../hooks/cache'
 import { widthOf } from '../hooks/markdown'
 import { mermaidArt } from '../hooks/mermaid-art'
 import noir from '../hooks/themes/noir'
-import { isMarked, viaPane } from './pane'
+import { act, isMarked, itemOf, panelOf, test, viaPane } from './pane'
 
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -256,7 +257,7 @@ test('on the desktop every prompt keeps the app message, with its copy and rewin
   }
 })
 
-test('the settings pane moves the prompt outline to the right and back', async ($, on) => {
+test('the Skins tab moves the prompt outline to the right and back', async ($, on) => {
   stubEngine(on)
   const alignOf = async () => {
     const typed = await $.ui.mount({ ...SITE, surface: 'terminal', component: 'UserMessage', requestId: 'm1', props: { text: 'fix the build', origin: { kind: 'composer' }, isExpanded: false } })
@@ -268,25 +269,19 @@ test('the settings pane moves the prompt outline to the right and back', async (
 
   await viaPane($, 'prompt right')
   expect(await alignOf()).toBe('flex-end')
+  expect(itemOf(await panelOf($), 'choice:prompt')).toMatchObject({ value: 'right' })
 
-  const pane = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  await pane.press({ key: 'tab-look' })
-  expect((await pane.find({ key: 'prompt-right' }))?.props.label).toBe('● right')
-  await pane.press({ key: 'prompt-left' })
-  await pane.unmount()
+  await act($, 'choice:prompt', 'left')
   expect(await alignOf()).toBe('flex-start')
 })
 
-test('the settings pane offers left, right and no outline for the prompt, one marked at a time', async ($, on) => {
+test('the Skins tab offers left, right and no outline for the prompt', async ($, on) => {
   stubEngine(on)
-  const pane = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  await pane.press({ key: 'tab-look' })
-  const marks = async () =>
-    Promise.all(['left', 'right', 'plain'].map(async mode => (await pane.find({ key: `prompt-${mode}` }))?.props.label))
+  const prompt = itemOf(await panelOf($), 'choice:prompt')
 
-  expect(await marks()).toEqual(['● left', '○ right', '○ no outline'])
-  await pane.press({ key: 'prompt-plain' })
-  expect(await marks()).toEqual(['○ left', '○ right', '● no outline'])
+  expect(prompt).toMatchObject({ kind: 'choice', value: 'left', options: [{ value: 'left', label: 'left' }, { value: 'right', label: 'right' }, { value: 'plain', label: 'no outline' }] })
+  await act($, 'choice:prompt', 'plain')
+  expect(itemOf(await panelOf($), 'choice:prompt')).toMatchObject({ value: 'plain' })
 
   const typed = await $.ui.mount({ ...SITE, surface: 'terminal', component: 'UserMessage', requestId: 'm1', props: { text: 'fix the build', origin: { kind: 'composer' }, isExpanded: false } })
   const column = (await typed.find({ type: 'Box' })) as { props: { alignItems?: string }; children?: readonly { props?: { borderStyle?: string } }[] } | undefined
@@ -296,9 +291,9 @@ test('the settings pane offers left, right and no outline for the prompt, one ma
   expect(await typed.find({ type: 'Text', text: 'fix the build' })).toBeDefined()
   await typed.unmount()
 
-  await pane.press({ key: 'prompt-left' })
-  expect(await marks()).toEqual(['● left', '○ right', '○ no outline'])
-  await pane.unmount()
+  // A value the choice does not offer changes nothing.
+  await act($, 'choice:prompt', 'up')
+  expect(itemOf(await panelOf($), 'choice:prompt')).toMatchObject({ value: 'plain' })
 })
 
 test('a reply with a table draws the table, a reply without one keeps its own drawing', async ($, on) => {
@@ -480,14 +475,11 @@ test('the question dialog keeps Claude Code’s drawing under a band naming its 
   expect(await ui.find({ type: 'Text', text: /Approach {2}· {2}Store/ })).toBeDefined()
 })
 
-test('the settings pane picks a skin, switches the rail and paints a slot', async ($, on) => {
+test('the Skins tab picks a skin, switches the rail and paints a slot', async ($, on) => {
   stubEngine(on)
 
-  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  await pane.press({ key: 'skin-dracula' })
-  await pane.press({ key: 'tab-look' })
-  await pane.press({ key: 'toggle-rail' })
-  await pane.unmount()
+  await act($, 'skin', 'dracula')
+  await act($, 'toggle:rail', 'off')
 
   const row = await $.ui.mount(toolUse(call('Bash', { command: 'ls' })))
   const found = await row.find({ type: 'Text', text: /Bash/ })
@@ -495,56 +487,49 @@ test('the settings pane picks a skin, switches the rail and paints a slot', asyn
   expect(await row.find({ type: 'Text', text: '┃' })).toBeUndefined()
   await row.unmount()
 
-  const again = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  await again.press({ key: 'tab-colors' })
-  await again.input({ key: 'hex', text: '#ff0000' })
-  await again.unmount()
+  await act($, 'edit:run')
+  expect(itemOf(await panelOf($), 'edit:run')).toMatchObject({ kind: 'swatch', selected: true })
+  await act($, 'paint', '#ff0000')
 
-  expect(await isMarked($, 'theme', 'skin-my-dracula')).toBe(true)
+  expect(await isMarked($, 'skin-my-dracula')).toBe(true)
+  expect(itemOf(await panelOf($), 'edit:run')).toMatchObject({ color: '#ff0000' })
 })
 
-test('every tab of the settings pane draws on both surfaces, with its own options', async ($, on) => {
+test('the Skins tab holds every option in six sections, with a live preview, on both surfaces', async ($, on) => {
   stubEngine(on)
-  const keys: Record<string, string[]> = {
-    theme: ['skin-noir', 'skin-off', 'folder-pin', 'folder-share'],
-    look: ['prompt-right', 'icons-ascii', 'words-claude', 'toggle-rail', 'toggle-shimmer', 'toggle-calm', 'lang-pt'],
-    content: ['tables-text', 'toggle-markdown', 'toggle-highlight', 'toggle-shell', 'toggle-commands', 'toggle-charts', 'toggle-hints', 'toggle-math', 'toggle-links', 'toggle-copy', 'toggle-fold', 'toggle-quiet', 'toggle-clip'],
-    band: ['toggle-band', 'toggle-countdown'],
-    colors: ['slot-user', 'slot-other', 'hex'],
-    actions: ['action-copy', 'action-copy-code', 'action-gallery'],
+  const ids: Record<string, string[]> = {
+    theme: ['skin', 'folder:pin', 'folder:share'],
+    look: ['choice:prompt', 'choice:icons', 'choice:words', 'toggle:rail', 'toggle:shimmer', 'calm'],
+    content: ['choice:tables', 'toggle:markdown', 'toggle:highlight', 'toggle:shell', 'toggle:commands', 'toggle:charts', 'toggle:hints', 'toggle:math', 'toggle:links', 'toggle:copy', 'toggle:fold', 'toggle:quiet', 'toggle:clip'],
+    band: ['toggle:band', 'toggle:countdown'],
+    colors: ['edit:user', 'edit:other', 'paint'],
+    actions: ['copy', 'copy-code', 'gallery'],
   }
 
   for (const surface of SURFACES) {
-    for (const width of [100, 50]) {
-      const pane = await $.ui.mount({ ...PANE, surface, props: { ...PANE.props, bodyColumns: width } })
+    const panel = await panelOf($, 'en', surface)
 
-      for (const [tab, wanted] of Object.entries(keys)) {
-        await pane.press({ key: `tab-${tab}` })
+    expect(panel.title).toBe('Skins')
+    expect(panel.summary).toBe('skin noir')
+    expect(panel.sections.map(section => section.id)).toEqual(Object.keys(ids))
 
-        for (const key of wanted) {
-          expect(await pane.find({ key }), `${surface} ${width} ${tab} ${key}`).toBeDefined()
-        }
-      }
-
-      await pane.press({ key: 'tab-theme' })
-      await pane.unmount()
+    for (const section of panel.sections) {
+      const present = section.items.flatMap(item => ('id' in item ? [item.id] : []))
+      expect(present, `${surface} ${section.id}`).toEqual(expect.arrayContaining(ids[section.id] ?? []))
     }
+
+    expect(panel.sections[0]?.items.some(item => item.kind === 'tree')).toBe(true)
+    expect(itemOf(panel, 'skin')).toMatchObject({ value: 'noir' })
   }
 })
 
-test('the settings pane speaks Portuguese once picked, and English again after', async ($, on) => {
+test('the Skins tab speaks Portuguese when the hub does', async ($, on) => {
   stubEngine(on)
-  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const panel = await panelOf($, 'pt')
 
-  expect((await pane.find({ key: 'tab-look' }))?.props.label).toBe('Look')
-  await pane.press({ key: 'tab-look' })
-  await pane.press({ key: 'lang-pt' })
-  expect((await pane.find({ key: 'tab-look' }))?.props.label).toBe('Aparência')
-  expect((await pane.find({ key: 'toggle-rail' }))?.props.label).toBe('● ligado')
-  expect(await pane.find({ type: 'Text', text: 'Trilho do turno' })).toBeDefined()
-  await pane.press({ key: 'lang-en' })
-  expect((await pane.find({ key: 'tab-look' }))?.props.label).toBe('Look')
-  await pane.unmount()
+  expect(panel.sections.map(section => section.title)).toEqual(['Tema', 'Aparência', 'Conteúdo', 'Faixa de uso', 'Cores', 'Ações'])
+  expect(itemOf(panel, 'toggle:rail')).toMatchObject({ label: 'Trilho do turno' })
+  expect(JSON.stringify(panel)).not.toContain('Turn rail')
 })
 
 test('the agent’s design tool saves a skin and it applies at once', async ($, on) => {
@@ -566,13 +551,19 @@ test('the agent’s design tool saves a skin and it applies at once', async ($, 
   expect(refused.deny).toContain('built-in')
 })
 
-test('/skin opens the settings pane, and words after it change nothing', async ($, on) => {
+test('no /skin command is registered: skins is set in the /mods pane', async ($, on) => {
   stubEngine(on)
+  const registered: string[] = []
+  on('session.start', () => ({ cwd: '/work' }))
+  on('command.register', ($, e) => {
+    registered.push(e.name)
+    return { value: { command: e.name } }
+  })
+  on('tool.register', () => ({ value: { tool: 'mcp__skins__design' } }))
+  on('config.list', () => ({ value: [] }))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
 
-  expect((await runSkin($, '')).text).toBeUndefined()
-  expect((await runSkin($, 'nord')).text).toBeUndefined()
-  expect(await isMarked($, 'theme', 'skin-noir')).toBe(true)
-  expect(await isMarked($, 'theme', 'skin-nord')).toBe(false)
+  expect(registered).not.toContain('skin')
 })
 
 test('a table wider than its share spans the column instead of running off it', async ($, on) => {
@@ -2146,6 +2137,60 @@ test('calm mode off puts back the settings it changed, and keeps changes made me
   expect(await output.find({ type: 'Text', text: 'On branch main' })).toBeDefined()
   await output.unmount()
 
-  expect(await isMarked($, 'theme', 'skin-nord')).toBe(true)
-  expect(await isMarked($, 'look', 'toggle-calm')).toBe(false)
+  expect(await isMarked($, 'skin-nord')).toBe(true)
+  expect(await isMarked($, 'toggle-calm')).toBe(false)
+})
+
+// cache-tax, standing in: the prompt cache goes cold 42 minutes from now. A plugin runs apart
+// from this file, so each case is a plugin of its own.
+const CACHE_TAX: Plugin = {
+  name: 'cache-tax',
+  register(on) {
+    on('engine.create', async ($, e, next) => ({ ...(await next(e)), cachetax: { state: async () => ({ phase: 'unknown' as const, coldAt: null, warmUntil: null }) } }))
+    on('cachetax.state', async $ => ({ value: { phase: 'warm' as const, coldAt: (await $.clock.now()) + 42 * 60_000, warmUntil: null } }))
+  },
+}
+
+// The same, with a keep-warm window running for two more hours.
+const CACHE_TAX_KEPT: Plugin = {
+  name: 'cache-tax',
+  register(on) {
+    on('engine.create', async ($, e, next) => ({ ...(await next(e)), cachetax: { state: async () => ({ phase: 'unknown' as const, coldAt: null, warmUntil: null }) } }))
+    on('cachetax.state', async $ => {
+      const now = await $.clock.now()
+
+      return { value: { phase: 'warm' as const, coldAt: now + 42 * 60_000, warmUntil: now + 2 * 60 * 60_000 } }
+    })
+  },
+}
+
+for (const [plugin, text] of [[CACHE_TAX, 'cache: cold in 42m'], [CACHE_TAX_KEPT, 'cache: kept warm 2h00']] as const) {
+  test(`the band shows ${text}`, { plugins: [plugin] }, async ($, on) => {
+    stubEngine(on)
+    await startDesktop($, on)
+
+    for (const surface of SURFACES) {
+      const band = await $.ui.mount(BAND(surface, false))
+      const line = await band.find({ type: 'Text', text })
+
+      expect(line, surface).toBeDefined()
+      expect(line?.props.color).toBe(noir.palette.ok)
+      await band.unmount()
+    }
+  })
+}
+
+test('without cache-tax the band shows no cache line', async ($, on) => {
+  stubEngine(on)
+  await startDesktop($, on)
+
+  const band = await $.ui.mount(BAND('terminal', false))
+  expect(await band.find({ type: 'Text', text: /^cache:/ })).toBeUndefined()
+  await band.unmount()
+})
+
+test('the cache line warns in the last ten minutes and turns red once cold', async () => {
+  expect(cacheLine({ phase: 'warm', coldAt: 9 * 60_000, warmUntil: null }, 0)).toEqual({ text: 'cache: cold in 9m', tone: 'warn' })
+  expect(cacheLine({ phase: 'cold', coldAt: null, warmUntil: null }, 0)).toEqual({ text: 'cache: cold', tone: 'err' })
+  expect(cacheLine({ phase: 'unknown', coldAt: null, warmUntil: null }, 0)).toBeNull()
 })

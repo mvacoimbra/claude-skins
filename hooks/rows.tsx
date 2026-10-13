@@ -33,6 +33,7 @@ import type { Meter } from './svg-usage'
 import { kindOf, toolLabel } from './tools'
 import { inlineMath, mathArt, parseTex } from './math'
 import { mathSvg } from './svg-math'
+import type { CacheLine } from './cache'
 
 export type Ui = Pick<ElementTable, 'Box' | 'Text' | 'Markdown' | 'Button' | 'Code' | 'Link'>
 
@@ -899,7 +900,8 @@ function meterView(look: Look, meters: readonly Meter[]) {
 
 // The band above the prompt: the meters, and a Compact button that becomes the main
 // action, with a word on why, once the context is full enough to be worth it.
-export function usageBand(look: Look, meters: readonly Meter[], canCompact: boolean, compact: () => void) {
+// The meters, then cache-tax's countdown until the prompt cache goes cold when it is installed.
+export function usageBand(look: Look, meters: readonly Meter[], canCompact: boolean, compact: () => void, cache: CacheLine | null = null) {
   const { Box, Text, Button } = look.ui
   const { palette } = look.skin
   const context = meters.find(meter => meter.label === 'context')?.percent ?? 0
@@ -908,7 +910,8 @@ export function usageBand(look: Look, meters: readonly Meter[], canCompact: bool
   return (
     // The right edge stays clear: the band draws its own collapse mark ([-]) there.
     <Box flexDirection="row" alignItems="center" columnGap={2} paddingRight={5}>
-      {meterView(look, meters)}
+      {meters.length > 0 ? meterView(look, meters) : ''}
+      {cache === null ? '' : <Text color={palette[cache.tone]}>{cache.text}</Text>}
       <Box flexGrow={1} />
       {canCompact && isNudge ? <Text color={palette.warn}>{`Context is ${context}% full`}</Text> : ''}
       {canCompact ? (

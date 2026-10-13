@@ -1,7 +1,7 @@
 import { atom, memberOf, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement, RenderSurface, Timer } from 'claude-code'
 
-import type { CustomSkin, Disclosure, Prefs, SettingsTab, SkinSlot, SkinsMarkdownArgs, Touch, TurnStats, UsageSnap } from '../types'
+import type { CustomSkin, Disclosure, Prefs, SkinSlot, SkinsActArgs, SkinsActResult, SkinsMarkdownArgs, SkinsPanel, SkinsPanelArgs, Touch, TurnStats, UsageSnap } from '../types'
 import { DEFAULT_PREFS, parsePrefs, TOGGLES, withCalm } from './command'
 import { buildCustom, resolveSkin, skinNames, withSlot } from './custom'
 import { forTheme, gnomeDark, macDark, resolveLight, windowsDark } from './light'
@@ -19,9 +19,13 @@ import type { Look, SvgElement, Ui } from './rows'
 import { galleryPane } from './gallery'
 import { keepsOwnRow, SHELLS, shellResultOf } from './shell'
 import { OUTPUT_FOLD, shellRows } from './shell-rows'
-import { settingsPane } from './settings'
-import type { FolderWord } from './settings'
+import { CHOICES, skinsPanel } from './panel'
+import type { Choice, FolderWord } from './panel'
 import { STRINGS } from './i18n'
+import type { Lang } from './i18n'
+import { cacheLine, sameLine } from './cache'
+import type { CacheLine } from './cache'
+import { SLOTS } from './custom'
 import { sightings } from './sightings'
 import { ICONS } from './skin'
 import type { Skin } from './skin'
@@ -36,7 +40,6 @@ import { isDue, isNewer, LATEST_URL, STAR_NOTICE, starStep, updateNotice, versio
 import { hyperlinksFrom, touchOf } from './links'
 import type { Checked, Star } from './updates'
 
-const SETTINGS = 'skins-settings'
 const GALLERY = 'skins-gallery'
 const DESIGN = `mcp__skins__${DESIGN_TOOL.name}`
 const DESIGN_MATCH = /^mcp__skins__design$/
@@ -66,7 +69,7 @@ const frameAtom = atom({ plugin: 'skins', key: 'frame' } as const, 0)
 const turnsAtom = atom({ plugin: 'skins', key: 'turns' } as const, {})
 const durationAtom = atom({ plugin: 'skins', key: 'duration' } as const, -1)
 const editingAtom = atom({ plugin: 'skins', key: 'editing' } as const, 'user' as SkinSlot)
-const tabAtom = atom({ plugin: 'skins', key: 'tab' } as const, 'theme' as SettingsTab)
+const cacheLineAtom = atom({ plugin: 'skins', key: 'cacheLine' } as const, null as CacheLine | null)
 const lightAtom = atom({ plugin: 'skins', key: 'isLight' } as const, false)
 const imagesAtom = atom({ plugin: 'skins', key: 'images' } as const, false)
 // Whether a call only looked, so quiet output folds its result away.
@@ -407,13 +410,13 @@ async function savePrefs($: EngineInterface, prefs: Prefs): Promise<void> {
 }
 
 // The settings pane's folder buttons: this folder's own look, or the default.
-async function runFolderAction($: EngineInterface, word: FolderWord): Promise<string> {
+async function runFolderAction($: EngineInterface, word: FolderWord, lang: Lang): Promise<string> {
   const folder = await $.session.cwd()
   const custom = await read($, customAtom)
   const names = skinNames(custom)
   const folders = parseFolders(await $.store.get('folders'), names)
   const prefs = await read($, prefsAtom)
-  const t = STRINGS[prefs.lang].toasts
+  const t = STRINGS[lang].toasts
 
   switch (word) {
     case 'pin':
@@ -551,16 +554,162 @@ async function drawMarkdown($: EngineInterface, args: SkinsMarkdownArgs): Promis
   return replyRows({ ...lookOf(ui, active, args.surface), links, isFirstDraw: () => false }, segments, Math.max(20, Math.floor(args.columns)), svg)
 }
 
+// skins' tab in the /mods pane, drawn on the surface the hub draws on.
+async function panelFor($: EngineInterface, args: SkinsPanelArgs, lang: Lang): Promise<SkinsPanel> {
+  const prefs = await read($, prefsAtom)
+  const custom = await read($, customAtom)
+  const skin = resolveSkin(prefs.skin, custom) ?? resolveSkin(DEFAULT_PREFS.skin, custom)
+
+  if (skin === undefined || !SURFACES.includes(args.surface)) {
+    throw new Error('skins.panel takes { lang, surface, columns } with a surface skins draws on')
+  }
+
+  const look = lookOf($.ui.resolve({ surface: args.surface, component: 'AssistantMessage' }), { prefs, custom, skin }, args.surface)
+
+  return skinsPanel(look, {
+    names: skinNames(custom),
+    editing: await read($, editingAtom),
+    columns: Math.max(20, Math.floor(args.columns)),
+    pinned: await read($, pinnedAtom),
+    lang,
+  })
+}
+
+const isChoice = (field: string): field is Choice => Object.hasOwn(CHOICES, field)
+
+// A press in skins' tab: `skin`, `toggle:<word>`, `calm`, `choice:<field>`, `edit:<slot>`,
+// `paint`, `folder:<pin|unpin|share>`, `copy`, `copy-code` and `gallery`.
+async function actOnPanel($: EngineInterface, args: SkinsActArgs, lang: Lang): Promise<SkinsActResult> {
+  const prefs = await read($, prefsAtom)
+  const custom = await read($, customAtom)
+  const state = { prefs, custom }
+  const value = args.value ?? ''
+  const at = args.id.indexOf(':')
+  const head = at === -1 ? args.id : args.id.slice(0, at)
+  const rest = at === -1 ? '' : args.id.slice(at + 1)
+  const toasts = STRINGS[lang].toasts
+
+  switch (head) {
+    case 'skin':
+      if (value === 'off' || skinNames(custom).includes(value)) {
+        await commit($, { ...state, prefs: { ...prefs, skin: value } })
+      }
+
+      return {}
+    case 'toggle':
+      if (Object.hasOwn(TOGGLES, rest)) {
+        await commit($, { ...state, prefs: { ...prefs, [TOGGLES[rest as keyof typeof TOGGLES]]: value === 'on' } })
+      }
+
+      return {}
+    case 'calm':
+      await commit($, { ...state, prefs: withCalm(prefs, value !== 'off') })
+
+      return {}
+    case 'choice':
+      if (isChoice(rest) && (CHOICES[rest] as readonly string[]).includes(value)) {
+        await commit($, { ...state, prefs: { ...prefs, [rest]: value } })
+      }
+
+      return {}
+    case 'edit':
+      if ((SLOTS as readonly string[]).includes(rest)) {
+        await update($, editingAtom, () => rest as SkinSlot)
+      }
+
+      return {}
+    case 'paint': {
+      const made = withSlot(prefs.skin === 'off' ? DEFAULT_PREFS.skin : prefs.skin, custom, await read($, editingAtom), value)
+
+      if (typeof made === 'string') {
+        return { message: made }
+      }
+
+      await commit($, { prefs: { ...prefs, skin: made.name }, custom: { ...custom, [made.name]: made.skin } })
+
+      return {}
+    }
+    case 'folder':
+      return rest === 'pin' || rest === 'unpin' || rest === 'share' ? { message: await runFolderAction($, rest, lang) } : {}
+    case 'copy':
+    case 'copy-code': {
+      const code = head === 'copy-code'
+      const copied = copyOf(await read($, lastReplyAtom), code)
+
+      if ('message' in copied) {
+        return { message: copied.message }
+      }
+
+      const result = await $.ui.copy({ text: copied.text })
+
+      return { message: result.isCopied ? (code ? toasts.copiedCode : toasts.copiedReply) : toasts.cannotCopy }
+    }
+    case 'gallery':
+      await $.ui.open({ id: GALLERY, title: 'Skin gallery', focus: true, closeOnEscape: true })
+
+      return {}
+    default:
+      return {}
+  }
+}
+
+// cache-tax's countdown until the prompt cache goes cold, for the band; null without cache-tax.
+async function cacheLineOf($: EngineInterface): Promise<CacheLine | null> {
+  try {
+    return cacheLine(await $.cachetax.state(), await $.clock.now())
+  } catch {
+    return null
+  }
+}
+
+// The minute tick: the band draws again only when the countdown's words change.
+async function tickCache($: EngineInterface): Promise<void> {
+  if (!(await read($, prefsAtom)).band) {
+    return
+  }
+
+  const next = await cacheLineOf($)
+
+  if (!sameLine(next, await read($, cacheLineAtom))) {
+    await update($, cacheLineAtom, () => next)
+  }
+}
+
 export const register: Register = on => {
-  // Adds `$.skins` for other mods. A call is the `skins.markdown` event, which the hook
-  // below answers with this session's `$`; the method itself is the chain's floor.
+  // The language the /mods pane last asked for, for what a press answers.
+  let panelLang: Lang = 'en'
+
+  // Adds `$.skins` for other mods. A call is the `skins.<method>` event, which a hook below
+  // answers with this session's `$`; each method here is the chain's floor.
   on('engine.create', async ($, e, next) => {
     const built = await next(e)
 
-    return { ...built, skins: { markdown: async () => undefined } }
+    return {
+      ...built,
+      skins: {
+        markdown: async () => undefined,
+        panel: async () => ({ title: 'Skins', sections: [] }),
+        act: async () => ({}),
+        band: async () => false,
+      },
+    }
   })
 
   on('skins.markdown', async ($, e) => ({ value: await drawMarkdown($, e) }))
+
+  on('skins.panel', async ($, e) => {
+    panelLang = e.lang === 'pt' ? 'pt' : 'en'
+
+    return { value: await panelFor($, e, panelLang) }
+  })
+
+  on('skins.act', async ($, e) => ({ value: await actOnPanel($, e, panelLang) }))
+
+  on('skins.band', async $ => {
+    const active = await activeSkin($)
+
+    return { value: active !== null && active.prefs.band }
+  })
 
   // What the turn on the main loop has done so far, for its footer.
   let stats: TurnStats = NO_STATS
@@ -569,11 +718,6 @@ export const register: Register = on => {
   let countdownTicker: Timer | undefined
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: 'skin',
-      description: 'Open the skin settings',
-      immediate: true,
-    })
     await $.tool.register({
       name: DESIGN_TOOL.name,
       description: DESIGN_TOOL.description,
@@ -610,6 +754,9 @@ export const register: Register = on => {
     countdownTicker = $.clock.every(COUNTDOWN_MS, () => {
       void tickCountdowns($).catch((error: unknown) => {
         $.ui.log(`countdown tick: ${error instanceof Error ? error.message : String(error)}`, { to: 'debug' })
+      })
+      void tickCache($).catch((error: unknown) => {
+        $.ui.log(`cache tick: ${error instanceof Error ? error.message : String(error)}`, { to: 'debug' })
       })
     })
 
@@ -746,74 +893,13 @@ export const register: Register = on => {
     return { result: outcome.text }
   })
 
-  // Everything is set in the pane: /skin opens it, whatever follows the name.
-  on('command.run', { command: 'skin' }, async $ => {
-    await $.ui.open({ id: SETTINGS, title: 'Skins', focus: true, closeOnEscape: true })
-
-    return {}
-  })
-
-  on('ui.render', { component: 'Pane', requestId: SETTINGS }, async ($, e) => {
-    const prefs = await read($, prefsAtom)
-    const custom = await read($, customAtom)
-    const editing = await read($, editingAtom)
-    const skin = resolveSkin(prefs.skin, custom) ?? resolveSkin(DEFAULT_PREFS.skin, custom)
-    const ui = $.ui.resolve(e)
-
-    if (skin === undefined || e.surface === 'mobile' || !('Input' in ui)) {
-      return <ui.Text>Open the skin settings in the terminal or the desktop app.</ui.Text>
-    }
-
-    const look = lookOf(ui, { prefs, custom, skin }, e.surface)
-    const state = { prefs, custom }
-    const tab = await read($, tabAtom)
-    const pinned = await read($, pinnedAtom)
-    const toasts = STRINGS[prefs.lang].toasts
-    const lastReply = await read($, lastReplyAtom)
-
-    return settingsPane(look, ui, { names: skinNames(custom), editing, width: e.props.bodyColumns, tab, pinned }, {
-      tab: next => void update($, tabAtom, () => next),
-      pick: name => void commit($, { ...state, prefs: { ...prefs, skin: name } }),
-      toggle: word => void commit($, { ...state, prefs: { ...prefs, [TOGGLES[word]]: !prefs[TOGGLES[word]] } }),
-      calm: () => void commit($, { ...state, prefs: withCalm(prefs, prefs.calm === null) }),
-      choose: (field, value) => void commit($, { ...state, prefs: { ...prefs, [field]: value } }),
-      edit: slot => void update($, editingAtom, () => slot),
-      paint: hex => {
-        const made = withSlot(prefs.skin === 'off' ? DEFAULT_PREFS.skin : prefs.skin, custom, editing, hex)
-
-        if (typeof made === 'string') {
-          $.ui.toast(made)
-
-          return
-        }
-
-        void commit($, { prefs: { ...prefs, skin: made.name }, custom: { ...custom, [made.name]: made.skin } })
-      },
-      folder: word => void runFolderAction($, word).then(message => $.ui.toast(message)),
-      copy: code => {
-        const copied = copyOf(lastReply, code)
-
-        if ('message' in copied) {
-          $.ui.toast(copied.message)
-
-          return
-        }
-
-        void $.ui
-          .copy({ text: copied.text, surface: e.surface })
-          .then(result => $.ui.toast(result.isCopied ? (code ? toasts.copiedCode : toasts.copiedReply) : toasts.cannotCopy))
-      },
-      gallery: () => void $.ui.open({ id: GALLERY, title: 'Skin gallery', focus: true, closeOnEscape: true }),
-    })
-  })
-
   // Every element the skin draws, numbered, to point at when asking for a change.
   on('ui.render', { component: 'Pane', requestId: GALLERY }, async ($, e) => {
     const active = await activeSkin($)
     const ui = $.ui.resolve(e)
 
     if (active === null) {
-      return <ui.Text>The gallery shows a skin. Pick one in /skin first.</ui.Text>
+      return <ui.Text>The gallery shows a skin. Pick one in the Skins tab of /mods first.</ui.Text>
     }
 
     const look = lookOf(ui, active, e.surface)
@@ -1112,8 +1198,10 @@ export const register: Register = on => {
     // redraws the band when the minute tick changes one.
     const countdowns = active?.prefs.countdown === true ? (await read($, countdownsAtom), countdownsOf(usage, await $.clock.now())) : {}
     const meters = metersOf(usage, countdowns)
+    // Reading the atom redraws the band when the minute tick changes the countdown's words.
+    const cache = active?.prefs.band === true ? (await read($, cacheLineAtom), await cacheLineOf($)) : null
 
-    if (active === null || !active.prefs.band || e.props.hasSurvey || meters.length === 0) {
+    if (active === null || !active.prefs.band || e.props.hasSurvey || (meters.length === 0 && cache === null)) {
       return next(e)
     }
 
@@ -1142,7 +1230,7 @@ export const register: Register = on => {
       $,
       e,
       <Box flexDirection="column">
-        {usageBand(look, meters, !e.props.isWorking && !isCompacting, compact)}
+        {usageBand(look, meters, !e.props.isWorking && !isCompacting, compact, cache)}
         {theirs}
       </Box>,
     )

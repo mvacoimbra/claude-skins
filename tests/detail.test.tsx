@@ -1,9 +1,9 @@
 import type { On, RenderElement } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import { bodyOf, chunksOf, inputFields, isOpen, unifiedDiff } from '../hooks/detail'
-import { viaPane } from './pane'
+import { test, viaPane } from './pane'
 
 // Opened tool rows: the chevron, the call's input in full and its answer.
 

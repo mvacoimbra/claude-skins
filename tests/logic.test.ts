@@ -183,13 +183,6 @@ test('stored prefs that are stale or hand-edited fall back to defaults', async (
   expect(parsePrefs({ skin: 'off', rail: false }, NAMES).rail).toBe(false)
 })
 
-test('the settings pane speaks English unless Portuguese is stored', async () => {
-  expect(DEFAULT_PREFS.lang).toBe('en')
-  expect(parsePrefs({ lang: 'pt' }, NAMES).lang).toBe('pt')
-  expect(parsePrefs({ lang: 'fr' }, NAMES).lang).toBe('en')
-  expect(parsePrefs({}, NAMES).lang).toBe('en')
-})
-
 test('tables are on, text or off, and a stored on/off from before still reads', async () => {
   expect(parsePrefs({ tables: true }, NAMES).tables).toBe('on')
   expect(parsePrefs({ tables: false }, NAMES).tables).toBe('off')

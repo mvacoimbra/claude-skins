@@ -1,12 +1,12 @@
 import type { On, RenderElement } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import { inlineRuns } from '../hooks/blocks'
 import { hyperlinksFrom, safeHref, touchOf } from '../hooks/links'
 import { tableArt } from '../hooks/markdown'
 import noir from '../hooks/themes/noir'
-import { viaPane } from './pane'
+import { test, viaPane } from './pane'
 
 // Links, this turn's files, copy controls and folding.
 

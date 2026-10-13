@@ -2,7 +2,6 @@ import type { CalmSnapshot, Prefs } from '../types'
 
 export const DEFAULT_PREFS: Prefs = {
   skin: 'noir',
-  lang: 'en',
   icons: 'unicode',
   prompt: 'left',
   words: 'skin',
@@ -26,7 +25,7 @@ export const DEFAULT_PREFS: Prefs = {
   calm: null,
 }
 
-// The on/off settings, by the word the settings pane uses for each. Tables have a third
+// The on/off settings, by the word skins' tab in /mods uses for each. Tables have a third
 // state, `text`, so they are switched on their own.
 export const TOGGLES = {
   rail: 'rail',
@@ -82,7 +81,6 @@ export function parsePrefs(raw: unknown, names: readonly string[]): Prefs {
       typeof skin === 'string' && (skin === 'off' || names.includes(skin))
         ? skin
         : DEFAULT_PREFS.skin,
-    lang: saved.lang === 'pt' ? 'pt' : 'en',
     icons: saved.icons === 'ascii' ? 'ascii' : 'unicode',
     prompt: saved.prompt === 'right' || saved.prompt === 'plain' ? saved.prompt : 'left',
     words: saved.words === 'claude' ? 'claude' : 'skin',

@@ -1,12 +1,13 @@
 import type { Prefs, SettingsTab, SkinSlot } from '../types'
 import type { ToggleWord } from './command'
 
-export type Lang = Prefs['lang']
+// The languages of skins' tab in the /mods pane, which picks one.
+export type Lang = 'en' | 'pt'
 
 // One option in the settings pane: what it is called and one line on what it does.
 type Option = { name: string; help: string }
 
-// Every word the settings pane draws, in each language it speaks. English is the default.
+// Every word skins' tab in the /mods pane shows, in each language it speaks. English is the default.
 export type Strings = {
   tabs: Record<SettingsTab, string>
   on: string
@@ -29,7 +30,6 @@ export type Strings = {
   icons: Option & Record<Prefs['icons'], string>
   words: Option & Record<Prefs['words'], string>
   tables: Option & Record<Prefs['tables'], string>
-  lang: Option & Record<Lang, string>
   colors: {
     help: string
     paint: string
@@ -48,7 +48,8 @@ export type Strings = {
     unpinned: (skin: string) => string
     shared: (skin: string) => string
   }
-  footer: string
+  summary: (skin: string, pinned: boolean) => string
+  editing: string
 }
 
 const en: Strings = {
@@ -97,7 +98,6 @@ const en: Strings = {
   icons: { name: 'Icons', help: 'The glyphs in rows and charts', unicode: 'unicode', ascii: 'ascii' },
   words: { name: 'Spinner words', help: 'Whose words the spinner and the turn footer show', skin: "the skin's", claude: "Claude Code's" },
   tables: { name: 'Tables and code', help: 'Cards, selectable text on the desktop, or Claude Code’s own', on: 'cards', text: 'text', off: 'off' },
-  lang: { name: 'Language', help: 'The language of this screen', en: 'English', pt: 'Português' },
   colors: {
     help: 'Pick a color, then type a hex. Repainting a built-in skin saves it as your own my-<skin>.',
     paint: 'paint',
@@ -132,7 +132,8 @@ const en: Strings = {
     unpinned: skin => `this folder follows the default: ${skin}`,
     shared: skin => `default look: ${skin}`,
   },
-  footer: 'Esc closes · Tab and the arrows move · 1–6 switch tabs',
+  summary: (skin, pinned) => (skin === 'off' ? "off · Claude Code's own look" : `skin ${skin}${pinned ? ' · this folder only' : ''}`),
+  editing: 'Editing',
 }
 
 const pt: Strings = {
@@ -181,7 +182,6 @@ const pt: Strings = {
   icons: { name: 'Ícones', help: 'Os símbolos das linhas e dos gráficos', unicode: 'unicode', ascii: 'ascii' },
   words: { name: 'Palavras do spinner', help: 'De quem são as palavras do spinner e do rodapé do turno', skin: 'do skin', claude: 'do Claude Code' },
   tables: { name: 'Tabelas e código', help: 'Cards, texto selecionável no desktop, ou o desenho do Claude Code', on: 'cards', text: 'texto', off: 'desligado' },
-  lang: { name: 'Idioma', help: 'O idioma desta tela', en: 'English', pt: 'Português' },
   colors: {
     help: 'Escolha uma cor e digite o hex. Repintar um skin pronto salva como o seu my-<skin>.',
     paint: 'pintar',
@@ -216,7 +216,8 @@ const pt: Strings = {
     unpinned: skin => `esta pasta segue o padrão: ${skin}`,
     shared: skin => `visual padrão: ${skin}`,
   },
-  footer: 'Esc fecha · Tab e as setas navegam · 1–6 trocam de aba',
+  summary: (skin, pinned) => (skin === 'off' ? 'desligado · visual do Claude Code' : `skin ${skin}${pinned ? ' · só nesta pasta' : ''}`),
+  editing: 'Editando',
 }
 
 export const STRINGS: Readonly<Record<Lang, Strings>> = { en, pt }

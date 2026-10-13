@@ -1,12 +1,12 @@
 import type { On, RenderElement } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import { highlight, languageOf, outputTokens } from '../hooks/highlight'
 import type { Role } from '../hooks/highlight'
 import noir from '../hooks/themes/noir'
 import dracula from '../hooks/themes/dracula'
-import { viaPane } from './pane'
+import { test, viaPane } from './pane'
 
 // The terminal's highlighting: each language family, shell output, and the toggle.
 

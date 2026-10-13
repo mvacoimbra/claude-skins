@@ -1,77 +1,99 @@
-import type { Engine } from 'claude-code/testing'
+import { test as base } from 'claude-code/testing'
+import type { Engine, Plugin, TestBody } from 'claude-code/testing'
 
-// The settings pane, as the tests mount it.
-export const PANE = {
-  plugin: 'skins',
-  viewport: { columns: 100, rows: 30 },
-  component: 'Pane',
-  requestId: 'skins-settings',
-  props: {
-    title: 'Skins',
-    isFocused: true,
-    bodyColumns: 80,
-    placement: 'inline',
-    scroll: { offset: 0, bodyRows: 30 },
-    view: {},
+import type { SkinsItem, SkinsPanel } from '../types'
+
+// Only another module can call a plugin's noun. This stand-in for the /mods hub calls `$.skins`
+// from two commands of its own, hands the answer back as JSON, and toasts what a press answers,
+// as the hub does.
+export const HUB: Plugin = {
+  name: 'hub',
+  register(on) {
+    on('command.run', { command: 'hub-panel' }, async ($, e) => ({ text: JSON.stringify(await $.skins.panel(JSON.parse(e.args))) }))
+    on('command.run', { command: 'hub-act' }, async ($, e) => {
+      const result = await $.skins.act(JSON.parse(e.args))
+
+      if (result.message) {
+        $.ui.toast(result.message)
+      }
+
+      return { text: JSON.stringify(result) }
+    })
   },
-} as const
-
-// The tab of the settings pane each option sits on.
-const TAB_OF: Record<string, string> = {
-  prompt: 'look', icons: 'look', words: 'look', rail: 'look', shimmer: 'look', calm: 'look', lang: 'look',
-  tables: 'content', markdown: 'content', highlight: 'content', shell: 'content', commands: 'content', charts: 'content',
-  hints: 'content', math: 'content', links: 'content', copy: 'content', fold: 'content', quiet: 'content', clip: 'content',
-  band: 'band', countdown: 'band',
 }
 
-const CHOICE_FIELDS = ['prompt', 'icons', 'words', 'tables', 'lang']
+// Every test runs beside the hub stand-in.
+export function test(name: string, body: TestBody): void
+export function test(name: string, options: Record<string, unknown>, body: TestBody): void
+export function test(name: string, a: unknown, b?: unknown): void {
+  const options = (b === undefined ? {} : a) as Record<string, unknown>
+  const body = (b === undefined ? a : b) as TestBody
+  const plugins = Array.isArray(options.plugins) ? options.plugins : []
+  ;(base as unknown as (n: string, o: Record<string, unknown>, f: TestBody) => void)(name, { ...options, plugins: [HUB, ...plugins] }, body)
+}
 
-// What reading a button's label needs of a mounted drawing.
-type Pane = { find: (query: { key: string }) => Promise<unknown> }
+async function call($: Engine, command: string, args: unknown) {
+  const answer = await $.command.run({ command, args: JSON.stringify(args), origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
 
-type Found = { props: Record<string, unknown> } | undefined
+  return JSON.parse(answer.text ?? 'null')
+}
 
-const labelOf = async (pane: Pane, key: string) => String(((await pane.find({ key })) as Found)?.props.label ?? '')
+export const panelOf = ($: Engine, lang: 'en' | 'pt' = 'en', surface: 'terminal' | 'desktop' = 'terminal', columns = 80): Promise<SkinsPanel> =>
+  call($, 'hub-panel', { lang, surface, columns })
 
-// Does what `/skin <words>` used to, by pressing the settings pane's buttons: a skin's
-// name, `<option> on|off`, `<choice> <value>`, `calm`, `pin`, `unpin`, `share`, `copy`,
-// `copy code` and `gallery`.
+export const act = ($: Engine, id: string, value?: string): Promise<{ message?: string }> => call($, 'hub-act', value === undefined ? { id } : { id, value })
+
+export const itemOf = (panel: SkinsPanel, id: string): SkinsItem | undefined => panel.sections.flatMap(section => section.items).find(item => 'id' in item && item.id === id)
+
+const CHOICE_FIELDS = ['prompt', 'icons', 'words', 'tables']
+
+const TOGGLE_WORDS = ['rail', 'shimmer', 'band', 'countdown', 'clip', 'markdown', 'quiet', 'charts', 'math', 'commands', 'shell', 'highlight', 'hints', 'links', 'copy', 'fold']
+
+// Presses in skins' tab what `/skin <words>` used to do: a skin's name, `<option> on|off`,
+// `<choice> <value>`, `calm [on|off]`, `pin`, `unpin`, `share`, `copy`, `copy code` and `gallery`.
 export async function viaPane($: Engine, words: string) {
-  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
   const [head = '', value] = words.trim().split(/\s+/)
-  const press = async (tab: string, key: string) => {
-    await pane.press({ key: `tab-${tab}` })
-    await pane.press({ key })
-  }
 
   if (head === 'copy' && (value === undefined || value === 'code')) {
-    await press('actions', value === 'code' ? 'action-copy-code' : 'action-copy')
-  } else if (head === 'gallery') {
-    await press('actions', 'action-gallery')
-  } else if (head === 'pin' || head === 'unpin' || head === 'share') {
-    await press('theme', `folder-${head}`)
-  } else if (CHOICE_FIELDS.includes(head)) {
-    await press(TAB_OF[head] ?? 'look', `${head}-${value}`)
-  } else if (TAB_OF[head] !== undefined) {
-    await pane.press({ key: `tab-${TAB_OF[head]}` })
-    const isOn = (await labelOf(pane, `toggle-${head}`)).startsWith('●')
-
-    if (isOn !== ((value ?? 'on') === 'on')) {
-      await pane.press({ key: `toggle-${head}` })
-    }
-  } else {
-    await press('theme', `skin-${head}`)
+    return act($, value === 'code' ? 'copy-code' : 'copy')
   }
 
-  await pane.unmount()
+  if (head === 'gallery') {
+    return act($, 'gallery')
+  }
+
+  if (head === 'pin' || head === 'unpin' || head === 'share') {
+    return act($, `folder:${head}`)
+  }
+
+  if (CHOICE_FIELDS.includes(head)) {
+    return act($, `choice:${head}`, value)
+  }
+
+  if (head === 'calm') {
+    return act($, 'calm', value ?? 'on')
+  }
+
+  if (TOGGLE_WORDS.includes(head)) {
+    return act($, `toggle:${head}`, value ?? 'on')
+  }
+
+  return act($, 'skin', head)
 }
 
-// Whether the settings pane marks that button chosen, on the tab it sits on.
-export async function isMarked($: Engine, tab: string, key: string) {
-  const pane = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  await pane.press({ key: `tab-${tab}` })
-  const marked = (await labelOf(pane, key)).startsWith('●')
-  await pane.unmount()
+// Whether skins' tab shows that choice made: `skin-<name>` for the skin, `toggle-<word>` for an
+// option, `toggle-calm` for calm.
+export async function isMarked($: Engine, key: string) {
+  const panel = await panelOf($)
 
-  return marked
+  if (key.startsWith('skin-')) {
+    const skin = itemOf(panel, 'skin')
+
+    return skin?.kind === 'choice' && skin.value === key.slice('skin-'.length)
+  }
+
+  const word = key.slice('toggle-'.length)
+  const item = itemOf(panel, word === 'calm' ? 'calm' : `toggle:${word}`)
+
+  return item?.kind === 'toggle' && item.value
 }

@@ -17,14 +17,12 @@ export type SkinSlot =
   | 'err'
   | 'warn'
 
-// The settings pane's tabs, in the order they are drawn.
+// The sections of skins' tab in the /mods pane, in the order they are drawn.
 export type SettingsTab = 'theme' | 'look' | 'content' | 'band' | 'colors' | 'actions'
 
-// What the settings pane changes. `skin` is a skin's name, or 'off'.
+// What skins' tab in the /mods pane changes. `skin` is a skin's name, or 'off'.
 export type Prefs = {
   skin: string
-  // The language the settings pane speaks.
-  lang: 'en' | 'pt'
   icons: 'unicode' | 'ascii'
   // Which side the outline around a typed prompt sits on; 'right' matches the desktop app.
   // 'plain' drops the outline for a leading marker.
@@ -92,6 +90,24 @@ export type Touch = 'created' | 'edited'
 // call failed.
 export type Disclosure = 'auto' | 'open' | 'closed'
 
+// skins' tab in the /mods pane (PROTOCOL.md in claude-mods-hub).
+export type SkinsLang = 'en' | 'pt'
+export type SkinsPanelArgs = { lang: SkinsLang; surface: 'terminal' | 'desktop' | 'vscode' | 'mobile'; columns: number }
+export type SkinsTone = 'ok' | 'warn' | 'err' | 'muted' | 'accent'
+export type SkinsItem =
+  | { kind: 'toggle'; id: string; label: string; help?: string; value: boolean }
+  | { kind: 'choice'; id: string; label: string; help?: string; value: string; options: { value: string; label: string }[] }
+  | { kind: 'action'; id: string; label: string; help?: string; primary?: boolean }
+  | { kind: 'input'; id: string; label: string; help?: string; placeholder?: string; submitLabel?: string }
+  | { kind: 'info'; label: string; value: string; tone?: SkinsTone }
+  | { kind: 'text'; text: string; tone?: SkinsTone }
+  | { kind: 'swatch'; id: string; label: string; color: string; selected: boolean }
+  | { kind: 'tree'; tree: unknown }
+export type SkinsSection = { id: string; title: string; items: SkinsItem[] }
+export type SkinsPanel = { title: string; summary?: string; tone?: SkinsTone; sections: SkinsSection[]; refreshMs?: number }
+export type SkinsActArgs = { id: string; value?: string }
+export type SkinsActResult = { message?: string }
+
 // `$.skins.markdown`'s argument: where the tree draws, the markdown, the width in columns.
 export type SkinsMarkdownArgs = { surface: 'terminal' | 'desktop' | 'vscode' | 'mobile'; text: string; columns: number }
 
@@ -103,6 +119,11 @@ declare module 'claude-code' {
       // diagrams, math, alerts. Undefined when skins is off or the text holds nothing it
       // draws; throws on a malformed argument. No copy or fold controls.
       markdown: (args: SkinsMarkdownArgs) => Promise<RenderElement | undefined>
+      // skins' tab in the /mods pane, and a press in it.
+      panel: (args: SkinsPanelArgs) => Promise<SkinsPanel>
+      act: (args: SkinsActArgs) => Promise<SkinsActResult>
+      // True while the usage band shows cache-tax's countdown, so cache-tax leaves out its own row.
+      band: () => Promise<boolean>
     }
   }
 
@@ -115,8 +136,8 @@ declare module 'claude-code' {
       turns: Record<string, TurnStats>
       duration: StateFamily<number>
       editing: SkinSlot
-      // The settings pane's open tab.
-      tab: SettingsTab
+      // cache-tax's countdown as the band last drew it, so the minute tick redraws only on a change.
+      cacheLine: { text: string; tone: 'ok' | 'warn' | 'err' } | null
       usage: UsageSnap
       // The usage band's countdowns by limit label, as last drawn.
       countdowns: Record<string, string>

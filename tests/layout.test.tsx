@@ -1,5 +1,5 @@
 import type { On, RenderElement } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import { diffFenceTag, fenceDiff, newOnly } from '../hooks/diff-fence'
@@ -7,7 +7,7 @@ import { DEFAULT_PREFS } from '../hooks/command'
 import { replySegments } from '../hooks/reply'
 import dracula from '../hooks/themes/dracula'
 import noir from '../hooks/themes/noir'
-import { viaPane } from './pane'
+import { test, viaPane } from './pane'
 
 // Diff fences, blocks side by side, and `$.skins.markdown` for other mods.
 
