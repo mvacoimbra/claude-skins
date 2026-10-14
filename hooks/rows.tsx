@@ -985,17 +985,19 @@ export function usageBand(look: Look, meters: readonly Meter[], canCompact: bool
   // About the pixels a column takes on the desktop; the meters keep clear of the controls.
   const meterRoom = Math.max(200, (columns - clear - 2) * 7.5)
   const compactWords = isNudge ? `Context is ${context}% full · compact now` : `Compact the conversation · context ${context}%`
-  const card = (id: Reveal, words: string, color: string | undefined) => (
+  // One row, no border: the band is one row tall and clips anything taller, so a bordered
+  // card (three rows on the desktop) never shows. It sits inside its control's keyed Box,
+  // as the Components tab's reveal demo does, placed left of the control (`right` counts
+  // from the control's own right edge), over the meters, on an opaque ground.
+  const card = (id: Reveal, words: string, color: string | undefined, right: number) => (
+    // No key of its own: a keyed Box is a hover scope, and a hidden one can never be hovered.
     <Box
-      key={`band-card-${id}`}
       position="absolute"
       top={0}
-      right={clear}
-      {...(reveal === id ? {} : { display: 'none' as const, hover: { scope: `skins-band-${id}`, display: 'flex' as const } })}
+      right={right}
+      {...(reveal === id ? {} : { display: 'none' as const, hover: { display: 'flex' as const } })}
       flexDirection="row"
       paddingX={1}
-      borderStyle="round"
-      borderColor={look.t.ink.line}
       backgroundColor={look.t.hex.hover}
     >
       <Text color={color} wrap="truncate-end">
@@ -1011,13 +1013,14 @@ export function usageBand(look: Look, meters: readonly Meter[], canCompact: bool
       {cache === null ? (
         ''
       ) : (
-        <Box key="band-cache" flexDirection="row" columnGap={1} alignItems="center" hover={{ scope: 'skins-band-cache' }}>
+        <Box key="band-cache" flexDirection="row" columnGap={1} alignItems="center">
           {kitIcon(k, 'cache', cache.tone)}
           {cache.short === '' ? '' : <Text color={palette[cache.tone]}>{cache.short}</Text>}
+          {card('cache', cache.text, palette[cache.tone], cacheW + 1)}
         </Box>
       )}
       {canCompact ? (
-        <Box key="band-compact" hover={{ scope: 'skins-band-compact' }}>
+        <Box key="band-compact" flexDirection="row">
           <Button
             key="compact"
             label={COMPACT_GLYPH}
@@ -1026,12 +1029,11 @@ export function usageBand(look: Look, meters: readonly Meter[], canCompact: bool
             {...(isNudge ? { variant: 'primary' as const } : { dimColor: true })}
             onPress={compact}
           />
+          {card('compact', compactWords, isNudge ? palette.warn : palette.fg, COMPACT_W + 1 + (cache === null ? 0 : cacheW + 2))}
         </Box>
       ) : (
         ''
       )}
-      {cache === null ? '' : card('cache', cache.text, palette[cache.tone])}
-      {canCompact ? card('compact', compactWords, isNudge ? palette.warn : palette.fg) : ''}
     </Box>
   )
 }
