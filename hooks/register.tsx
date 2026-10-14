@@ -39,6 +39,8 @@ import { commandOf, errorLine, isQuiet, quietLabel } from './quiet'
 import { MAX_MARKDOWN, replySegments } from './reply'
 import { isDue, isNewer, LATEST_URL, STAR_NOTICE, starStep, updateNotice, versionOf } from './updates'
 import { hyperlinksFrom, touchOf } from './links'
+import { NATIVE, NATIVE_NAME } from './kit/tone'
+import type { KitSkin } from './kit/tone'
 import type { Checked, Star } from './updates'
 
 const GALLERY = 'skins-gallery'
@@ -723,6 +725,19 @@ async function actOnPanel($: EngineInterface, args: SkinsActArgs, lang: Lang): P
   }
 }
 
+// `$.skins.palette`: the active skin as it is drawn now, light palette on a light appearance;
+// Claude Code's own colours while skins is off. A copy, so nothing of this mod crosses.
+async function paletteOf($: EngineInterface): Promise<KitSkin> {
+  const active = await activeSkin($)
+  const isLight = await read($, lightAtom)
+
+  if (active === null) {
+    return { name: NATIVE_NAME, palette: { ...(isLight ? NATIVE.light : NATIVE.dark) }, isLight }
+  }
+
+  return { name: active.skin.name, palette: { ...active.skin.palette }, isLight }
+}
+
 // cache-tax's countdown until the prompt cache goes cold, for the band; null without cache-tax.
 async function cacheLineOf($: EngineInterface): Promise<CacheLine | null> {
   try {
@@ -762,6 +777,7 @@ export const register: Register = on => {
         act: async () => ({}),
         band: async () => false,
         catalog: async () => [],
+        palette: async () => ({ name: NATIVE_NAME, palette: NATIVE.dark, isLight: false }),
       },
     }
   })
@@ -779,6 +795,8 @@ export const register: Register = on => {
   on('skins.act', async ($, e) => ({ value: await actOnPanel($, e, panelLang) }))
 
   on('skins.catalog', async ($, e) => ({ value: await catalogFor($, e) }))
+
+  on('skins.palette', async $ => ({ value: await paletteOf($) }))
 
   on('skins.band', async $ => {
     const active = await activeSkin($)

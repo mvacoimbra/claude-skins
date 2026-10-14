@@ -1,5 +1,6 @@
 import ayu from './ayu'
 import catppuccin from './catppuccin'
+import claude from './claude'
 import dracula from './dracula'
 import everforest from './everforest'
 import github from './github'
@@ -15,8 +16,10 @@ import solarized from './solarized'
 import tokyoNight from './tokyo-night'
 import type { Skin } from '../skin'
 
-// A new built-in skin is one file beside these and one line here. The first is the default.
+// A new built-in skin is one file beside these and one line here. The first, Claude Code's
+// own colours, is the default.
 export const SKINS: readonly Skin[] = [
+  claude,
   noir,
   tokyoNight,
   dracula,

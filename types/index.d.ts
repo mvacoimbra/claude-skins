@@ -20,7 +20,8 @@ export type SkinSlot =
 // The sections of skins' tab in the /mods pane, in the order they are drawn.
 export type SettingsTab = 'theme' | 'look' | 'content' | 'band' | 'colors' | 'actions'
 
-// What skins' tab in the /mods pane changes. `skin` is a skin's name, or 'off'.
+// What skins' tab in the /mods pane changes. `skin` is a skin's name ('claude', Claude Code's
+// own colours, by default), or 'off', which turns every drawing skins does off.
 export type Prefs = {
   skin: string
   icons: 'unicode' | 'ascii'
@@ -94,11 +95,14 @@ export type Disclosure = 'auto' | 'open' | 'closed'
 export type SkinsLang = 'en' | 'pt'
 export type SkinsPanelArgs = { lang: SkinsLang; surface: 'terminal' | 'desktop' | 'vscode' | 'mobile'; columns: number }
 export type SkinsTone = 'ok' | 'warn' | 'err' | 'muted' | 'accent'
+// Whose setting an item changes: the user's, in every session (the default), or only this
+// session's. The hub marks session items "this session only".
+export type SkinsScope = 'user' | 'session'
 export type SkinsItem =
-  | { kind: 'toggle'; id: string; label: string; help?: string; value: boolean }
-  | { kind: 'choice'; id: string; label: string; help?: string; value: string; options: { value: string; label: string }[] }
-  | { kind: 'action'; id: string; label: string; help?: string; primary?: boolean }
-  | { kind: 'input'; id: string; label: string; help?: string; placeholder?: string; submitLabel?: string }
+  | { kind: 'toggle'; id: string; label: string; help?: string; value: boolean; scope?: SkinsScope }
+  | { kind: 'choice'; id: string; label: string; help?: string; value: string; options: { value: string; label: string }[]; scope?: SkinsScope }
+  | { kind: 'action'; id: string; label: string; help?: string; primary?: boolean; scope?: SkinsScope }
+  | { kind: 'input'; id: string; label: string; help?: string; placeholder?: string; submitLabel?: string; scope?: SkinsScope }
   | { kind: 'info'; label: string; value: string; tone?: SkinsTone }
   | { kind: 'text'; text: string; tone?: SkinsTone }
   | { kind: 'swatch'; id: string; label: string; color: string; selected: boolean }
@@ -109,6 +113,11 @@ export type SkinsActArgs = { id: string; value?: string }
 export type SkinsActResult = { message?: string }
 // One named component skins draws, for the Components tab of /mods (the hub's catalog).
 export type SkinsCatalogEntry = { id: string; name: string; help?: string; tree: unknown }
+
+// `$.skins.palette`'s answer: the skin every mod wears, as it is drawn now. `palette` is the
+// light one on a light appearance; `name` is 'claude' for Claude Code's own colours, which is
+// also the answer while skins is off. The same shape as the pack kit's `KitSkin`.
+export type SkinsPalette = { name: string; palette: Record<SkinSlot, string>; isLight: boolean }
 
 // `$.skins.markdown`'s argument: where the tree draws, the markdown, the width in columns.
 export type SkinsMarkdownArgs = { surface: 'terminal' | 'desktop' | 'vscode' | 'mobile'; text: string; columns: number }
@@ -128,6 +137,8 @@ declare module 'claude-code' {
       band: () => Promise<boolean>
       // Every component skins draws, each named and drawn live, for the Components tab of /mods.
       catalog: (args: SkinsPanelArgs) => Promise<SkinsCatalogEntry[]>
+      // The active skin's colours, for another mod to draw in. Plain data.
+      palette: () => Promise<SkinsPalette>
     }
   }
 
