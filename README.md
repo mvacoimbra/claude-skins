@@ -11,7 +11,7 @@
   <img alt="Claude Code 2.1.287+" src="https://img.shields.io/badge/Claude%20Code-2.1.287%2B-555?style=flat-square">
 </p>
 
-<p align="center">Tool calls with icons and timings, edits as diff cards, tables, code and Mermaid charts as cards,<br>a live usage band, and fifteen skins you can repaint or have Claude design for you.</p>
+<p align="center">Tool calls with icons and timings, edits as diff cards, tables, code and Mermaid charts as cards,<br>a live usage band, Claude Code's own colours by default, and fifteen more skins you can repaint or have Claude design for you.</p>
 
 <img alt="Claude Code switching skins with /skin: a coding turn in Noir and Tokyo Night, then Mermaid chart cards in Dracula (xy chart), Catppuccin (sankey), Rosé Pine (radar) and Gruvbox (treemap)" src="docs/demo.gif">
 
@@ -27,7 +27,7 @@ Needs Claude Code **2.1.287** or later, in a terminal or the desktop app's Code 
 /plugin install skins@hellosverre-mods
 ```
 
-Restart Claude Code. The **noir** skin is on; change it in the Skins tab of `/mods`, the pane of the [claude-mods-hub](https://github.com/mvacoimbra/claude-mods-hub) mod.
+Restart Claude Code. The **Claude** skin, Claude Code's own colours, is on; change it in the Skins tab of `/mods`, the pane of the [claude-mods-hub](https://github.com/mvacoimbra/claude-mods-hub) mod.
 
 Looking for more mods? `/plugin install mod-store@hellosverre-mods`, then `/mods` browses and installs about 2,700 of them from a pane, showing what each one can access first.
 
@@ -51,7 +51,7 @@ Then restart Claude Code. Open sessions keep the version they started with.
 claude plugin uninstall skins@hellosverre-mods
 ```
 
-To keep it installed but go back to Claude Code's own drawing, pick **off** in the Skins tab of `/mods`.
+To keep it installed but go back to Claude Code's own drawing, pick **Skins off** in the Skins tab of `/mods`. (The **Claude** skin keeps skins' rows and cards in Claude Code's own colours; Skins off draws nothing at all.)
 
 ## Use
 
@@ -59,18 +59,22 @@ There are no slash commands: everything is set in the Skins tab of `/mods`, in s
 
 | Section | What it sets |
 |---|---|
-| Theme | The skin, with a live preview, or off for Claude Code's own drawing. Whether this folder keeps its own look or follows the default |
-| Look | Which side your prompt sits on in the terminal (or no outline), icons, whose spinner words show, the turn rail, the shimmer and calm mode |
-| Content | Tables and code as cards, selectable text or off; rich replies, code highlighting, the shell card, command output, charts and their hint, math, links, copy buttons, folding, quiet output, clipped output |
+| Skin | The skin (Claude, Claude Code's own colours, by default), with a live preview, or Skins off for Claude Code's own drawing. Whether this folder keeps its own skin and settings or follows the default |
+| Look | Which side your prompt sits on in the terminal (or no outline), Unicode or ASCII glyphs, whose spinner words show, the turn rail, the shimmer and calm mode |
+| Replies and output | Tables and code as cards, selectable text or off; rich replies, code highlighting, the shell card, command output, charts and their hint, math, links, copy buttons, folding, quiet output, clipped output |
 | Usage band | The context and plan-limit meters above the prompt, and how long until each limit resets, to the second (`18% 5h · 4h05m09s`; on by default). With [cache-tax](https://github.com/mvacoimbra/cache-tax) installed the band also shows how long until the prompt cache goes cold (`cache: cold in 42m`, `cache: kept warm 5h10` while a keep-warm window runs, `cache: cold`) |
 | Colors | Every colour of the skin, with what it paints: pick one and type a hex |
-| Actions | Copy Claude's last reply or its last code block, and open the gallery of every component the skin draws, numbered and named |
+| Copy and gallery | Copy Claude's last reply or its last code block, and open the gallery of every component the skin draws, numbered and named |
 
-The same catalog of named components (prompt rows, every tool row state, cards, the 17 chart kinds, math, alerts, task lists, the usage band and cache countdown states, the spinner, the footer, the palette) shows in the Components tab of `/mods`, so you can point at one by name when asking for a change.
+The same catalog of named components (prompt rows, every tool row state, cards, the 17 chart kinds, math, alerts, task lists, the usage band and cache countdown states, the spinner, the footer, the skin's palette and Claude's, the Skins tab's preview) shows in the Components tab of `/mods`, so you can point at one by name when asking for a change.
 
 **Design one with Claude.** Ask "make me a skin that feels like a sunset". skins gives Claude a
 `design` tool, so it builds the skin and applies it while you watch. Repainting a built-in skin saves
-it as your own `my-<skin>`. Choices are remembered across sessions.
+it as your own `my-<skin>`.
+
+**Your settings, in every session.** Settings live in your user store, not in the session: a change
+is saved at once, and every open session picks it up within a few seconds (and at once when you open
+`/mods`). A folder you pinned with **Use only here** keeps its own skin and settings.
 
 ## Preview
 
@@ -134,7 +138,21 @@ terminal (`COLORFGBG`) or the system. Force one with `SKINS_THEME=light` or `SKI
 
 ## For other mods
 
-skins adds `$.skins.markdown` to `$`. It draws markdown the way skins draws a reply, in the person's skin. It answers a tree, or `undefined` when skins is off or the text holds nothing it draws, and throws on a malformed argument. It draws no copy or fold controls, because a press cannot cross from one mod's tree to another's. List `skins` under `dependencies` in your `plugin.json` and Claude Code lays its types into your `.claude-plugin/types/`.
+skins adds `$.skins.palette` and `$.skins.markdown` to `$`.
+
+`$.skins.palette()` answers the skin every mod wears, as it is drawn now: `{ name, palette, isLight }`, with the light palette on a light appearance, and Claude Code's own colours (`name: 'claude'`) while skins is off. It is plain data, the same shape as the pack kit's `KitSkin`:
+
+```ts
+async function skinOf($: EngineInterface) {
+  try {
+    return await $.skins.palette()
+  } catch {
+    return null // skins not installed: Claude Code's own colours
+  }
+}
+```
+
+`$.skins.markdown` It draws markdown the way skins draws a reply, in the person's skin. It answers a tree, or `undefined` when skins is off or the text holds nothing it draws, and throws on a malformed argument. It draws no copy or fold controls, because a press cannot cross from one mod's tree to another's. List `skins` under `dependencies` in your `plugin.json` and Claude Code lays its types into your `.claude-plugin/types/`.
 
 ```tsx
 let drawn
@@ -192,7 +210,7 @@ the README does not say.
 | How | Function-hooks plugin | Function-hooks plugin | Function-hooks plugin, a Prismantis fork | Patches Claude Code's JavaScript; reapply after each update | Function-hooks mod | Status line command |
 | Claude Code | 2.1.287+ | 2.1.287+ | 2.1.289+ | Verified on 2.1.162 | 2.1.286+ | |
 | Platforms named | Windows by hand, Linux by tests; CI on Linux, Windows, macOS ([compat](docs/compat.md)) | macOS terminal by hand; CI on macOS, Linux, Windows | | Windows, macOS, Linux | Terminal and desktop app | Windows guide in its docs |
-| Themes | 15, repaint any colour, or have Claude design one | 15 and `mono`, 20 colour slots | 15 | Your own, for Claude Code's whole UI | | Powerline themes |
+| Themes | Claude Code's own and 15 more, repaint any colour, or have Claude design one | 15 and `mono`, 20 colour slots | 15 | Your own, for Claude Code's whole UI | | Powerline themes |
 | Recolours Claude Code's own UI | No | No | No | **Yes** | No | No |
 | Tool rows | Icons, timings, rail; **open to the input and answer** | 4 styles | | | No | No |
 | Read-only output hidden | Quiet output | `toolOutput: quiet` | | | No | No |
@@ -209,7 +227,7 @@ the README does not say.
 | Usage meters | Context and plan limits above the prompt | | | | No | **Many widgets**, Powerline |
 | Spinner words | The skin's, with a shimmer | | | **Your own verbs and animations** | No | No |
 | Copy | Cards, tables as markdown or as drawn, `copy reply`, Copy last reply in `/mods` | Buttons, `/prismantis copy`, HTML tables | Code, tables, diagrams, lists, quotes | | | No |
-| API for other mods | `$.skins.markdown` | `$.prismantis.markdown` | | | | No |
+| API for other mods | `$.skins.palette`, `$.skins.markdown` | `$.prismantis.markdown` | | | | No |
 
 Where they are better: **tweakcc** recolours all of Claude Code, not only what a hook can
 redraw, at the cost of patching the binary. **Prismantis** handles right-to-left text, copies
