@@ -14,14 +14,18 @@ export type Strings = {
   off: string
   theme: {
     skin: string
+    skinHelp: string
     offSkin: string
     preview: string
     folder: string
     pinned: string
     followsDefault: string
     pin: string
+    pinHelp: string
     unpin: string
+    unpinHelp: string
     share: string
+    shareHelp: string
     ask: string
     askExample: string
   }
@@ -33,6 +37,9 @@ export type Strings = {
   colors: {
     help: string
     paint: string
+    // The colour field's label and help, for the slot being painted.
+    field: (slot: string) => string
+    fieldHelp: (hex: string, paints: string) => string
     slots: Record<SkinSlot, Option>
   }
   actions: {
@@ -48,29 +55,33 @@ export type Strings = {
     unpinned: (skin: string) => string
     shared: (skin: string) => string
   }
-  summary: (skin: string, pinned: boolean) => string
-  editing: string
+  // The line under the mod's name in /mods: the skin's label, or null while skins is off.
+  summary: (skin: string | null, pinned: boolean) => string
 }
 
 const en: Strings = {
-  tabs: { theme: 'Theme', look: 'Look', content: 'Content', band: 'Usage band', colors: 'Colors', actions: 'Actions' },
+  tabs: { theme: 'Skin', look: 'Look', content: 'Replies and output', band: 'Usage band', colors: 'Colors', actions: 'Copy and gallery' },
   on: 'on',
   off: 'off',
   theme: {
     skin: 'Skin',
-    offSkin: "off · Claude Code's own look",
-    preview: 'Preview',
+    skinHelp: "The colors and words every row, card and mod wears. Claude is Claude Code's own; Skins off stops skins drawing anything",
+    offSkin: 'Skins off',
+    preview: 'A turn drawn in this skin',
     folder: 'This folder',
-    pinned: 'has its own look',
-    followsDefault: 'follows the default',
+    pinned: 'Its own skin and settings',
+    followsDefault: 'Follows the default',
     pin: 'Use only here',
+    pinHelp: 'Keep this skin and these settings for this folder; other folders keep the default',
     unpin: 'Follow the default',
-    share: 'Make this the default',
+    unpinHelp: "Drop this folder's own skin and settings and use the default again",
+    share: 'Make default',
+    shareHelp: 'Use this skin and these settings in every folder without its own',
     ask: 'Or ask Claude:',
     askExample: '“make me a skin that feels like a sunset”',
   },
   toggles: {
-    rail: { name: 'Turn rail', help: 'Terminal only: a line joining the tool rows of a turn' },
+    rail: { name: 'Turn rail', help: "Terminal only: a line down the left joining a turn's tool rows" },
     shimmer: { name: 'Shimmer', help: 'A band of light across the spinner word' },
     calm: { name: 'Calm mode', help: 'No motion, one line per tool row, read-only output folded. Off puts your settings back' },
     markdown: { name: 'Rich replies', help: 'Alerts, task lists and prose drawn by the skin' },
@@ -91,16 +102,18 @@ const en: Strings = {
   prompt: {
     name: 'Your messages',
     help: "Terminal only: where your prompt sits. The desktop keeps the app's own bubble",
-    left: 'left',
-    right: 'right',
-    plain: 'no outline',
+    left: 'Left',
+    right: 'Right',
+    plain: 'No outline',
   },
-  icons: { name: 'Icons', help: 'The glyphs in rows and charts', unicode: 'unicode', ascii: 'ascii' },
-  words: { name: 'Spinner words', help: 'Whose words the spinner and the turn footer show', skin: "the skin's", claude: "Claude Code's" },
-  tables: { name: 'Tables and code', help: 'Cards, selectable text on the desktop, or Claude Code’s own', on: 'cards', text: 'text', off: 'off' },
+  icons: { name: 'Glyphs', help: 'The marks in rows, fold controls and terminal charts: Unicode or plain ASCII', unicode: 'Unicode', ascii: 'ASCII' },
+  words: { name: 'Spinner words', help: 'Whose words the spinner and the turn footer show', skin: "The skin's", claude: "Claude Code's" },
+  tables: { name: 'Tables and code', help: 'Cards, selectable text on the desktop, or Claude Code’s own drawing', on: 'Cards', text: 'Text', off: 'Off' },
   colors: {
-    help: 'Pick a color, then type a hex. Repainting a built-in skin saves it as your own my-<skin>.',
-    paint: 'paint',
+    help: 'Pick a color, then type its hex. Repainting a built-in skin saves it as your own, my-<skin>.',
+    paint: 'Paint',
+    field: slot => `${slot} color`,
+    fieldHelp: (hex, paints) => `Now ${hex}. Paints ${paints}`,
     slots: {
       user: { name: 'Accent', help: 'the rail, your prompt marker, the spinner' },
       fg: { name: 'Text', help: 'body text' },
@@ -132,24 +145,27 @@ const en: Strings = {
     unpinned: skin => `this folder follows the default: ${skin}`,
     shared: skin => `default look: ${skin}`,
   },
-  summary: (skin, pinned) => (skin === 'off' ? "off · Claude Code's own look" : `skin ${skin}${pinned ? ' · this folder only' : ''}`),
-  editing: 'Editing',
+  summary: (skin, pinned) => (skin === null ? 'Off · Claude Code draws everything' : `${skin}${pinned ? ' · this folder only' : ''}`),
 }
 
 const pt: Strings = {
-  tabs: { theme: 'Tema', look: 'Aparência', content: 'Conteúdo', band: 'Faixa de uso', colors: 'Cores', actions: 'Ações' },
+  tabs: { theme: 'Skin', look: 'Aparência', content: 'Respostas e saídas', band: 'Faixa de uso', colors: 'Cores', actions: 'Copiar e galeria' },
   on: 'ligado',
   off: 'desligado',
   theme: {
     skin: 'Skin',
-    offSkin: 'desligado · visual do próprio Claude Code',
-    preview: 'Prévia',
+    skinHelp: 'As cores e palavras de cada linha, card e mod. Claude é o visual do próprio Claude Code; Skins desligado faz o skins não desenhar nada',
+    offSkin: 'Skins desligado',
+    preview: 'Um turno desenhado neste skin',
     folder: 'Esta pasta',
-    pinned: 'tem visual próprio',
-    followsDefault: 'segue o padrão',
+    pinned: 'Skin e ajustes próprios',
+    followsDefault: 'Segue o padrão',
     pin: 'Usar só aqui',
+    pinHelp: 'Guarda este skin e estes ajustes só para esta pasta; as outras seguem o padrão',
     unpin: 'Seguir o padrão',
+    unpinHelp: 'Descarta o skin e os ajustes desta pasta e volta ao padrão',
     share: 'Tornar padrão',
+    shareHelp: 'Usa este skin e estes ajustes em toda pasta sem ajustes próprios',
     ask: 'Ou peça ao Claude:',
     askExample: '“faz um skin com cara de pôr do sol”',
   },
@@ -175,16 +191,18 @@ const pt: Strings = {
   prompt: {
     name: 'Suas mensagens',
     help: 'Só no terminal: onde fica o seu prompt. No desktop fica o balão do próprio app',
-    left: 'esquerda',
-    right: 'direita',
-    plain: 'sem borda',
+    left: 'Esquerda',
+    right: 'Direita',
+    plain: 'Sem borda',
   },
-  icons: { name: 'Ícones', help: 'Os símbolos das linhas e dos gráficos', unicode: 'unicode', ascii: 'ascii' },
-  words: { name: 'Palavras do spinner', help: 'De quem são as palavras do spinner e do rodapé do turno', skin: 'do skin', claude: 'do Claude Code' },
-  tables: { name: 'Tabelas e código', help: 'Cards, texto selecionável no desktop, ou o desenho do Claude Code', on: 'cards', text: 'texto', off: 'desligado' },
+  icons: { name: 'Símbolos', help: 'As marcas das linhas, dos controles de dobrar e dos gráficos no terminal: Unicode ou ASCII simples', unicode: 'Unicode', ascii: 'ASCII' },
+  words: { name: 'Palavras do spinner', help: 'De quem são as palavras do spinner e do rodapé do turno', skin: 'Do skin', claude: 'Do Claude Code' },
+  tables: { name: 'Tabelas e código', help: 'Cards, texto selecionável no desktop, ou o desenho do próprio Claude Code', on: 'Cards', text: 'Texto', off: 'Desligado' },
   colors: {
-    help: 'Escolha uma cor e digite o hex. Repintar um skin pronto salva como o seu my-<skin>.',
-    paint: 'pintar',
+    help: 'Escolha uma cor e digite o hex. Repintar um skin pronto salva como o seu, my-<skin>.',
+    paint: 'Pintar',
+    field: slot => `Cor: ${slot}`,
+    fieldHelp: (hex, paints) => `Agora ${hex}. Pinta ${paints}`,
     slots: {
       user: { name: 'Destaque', help: 'o trilho, o marcador do prompt, o spinner' },
       fg: { name: 'Texto', help: 'texto principal' },
@@ -216,8 +234,7 @@ const pt: Strings = {
     unpinned: skin => `esta pasta segue o padrão: ${skin}`,
     shared: skin => `visual padrão: ${skin}`,
   },
-  summary: (skin, pinned) => (skin === 'off' ? 'desligado · visual do Claude Code' : `skin ${skin}${pinned ? ' · só nesta pasta' : ''}`),
-  editing: 'Editando',
+  summary: (skin, pinned) => (skin === null ? 'Desligado · o Claude Code desenha tudo' : `${skin}${pinned ? ' · só nesta pasta' : ''}`),
 }
 
 export const STRINGS: Readonly<Record<Lang, Strings>> = { en, pt }
