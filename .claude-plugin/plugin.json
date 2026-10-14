@@ -1,6 +1,6 @@
 {
   "name": "skins",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "Skins for Claude Code: tool rows that open onto their input and answer, highlighted code, diff, table, math, Mermaid and shell cards, links, folding, a usage band, a calm mode, Claude Code's own colours and fifteen more themes. Set them in the Skins tab of /mods.",
   "author": {
     "name": "hellosverre",
