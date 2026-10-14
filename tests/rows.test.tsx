@@ -2200,37 +2200,72 @@ const CACHE_TAX_KEPT: Plugin = {
   },
 }
 
-for (const [plugin, text] of [[CACHE_TAX, 'cache: cold in 42m'], [CACHE_TAX_KEPT, 'cache: kept warm 2h00']] as const) {
+for (const [plugin, text, short] of [[CACHE_TAX, 'cache: cold in 42m', '42m'], [CACHE_TAX_KEPT, 'cache: kept warm 2h00', '2h00']] as const) {
   test(`the band shows ${text}`, { plugins: [plugin] }, async ($, on) => {
     stubEngine(on)
     await startDesktop($, on)
 
-    for (const surface of SURFACES) {
-      const band = await $.ui.mount(BAND(surface, false))
-      const line = await band.find({ type: 'Text', text })
+    // The terminal has no hover: the short words, in Claude Code's own success colour.
+    const terminal = await $.ui.mount(BAND('terminal', false))
+    expect((await terminal.find({ type: 'Text', text: `cache ${short}` }))?.props.color).toBe('success')
+    await terminal.unmount()
 
-      expect(line, surface).toBeDefined()
-      // A live state in the kit's grammar: Claude Code's own success colour, with its dot.
-      expect(line?.props.color).toBe('success')
-      const dot = surface === 'terminal' ? await band.find({ type: 'Text', text: '●' }) : ((await band.findAll({ type: 'Svg' })) as { props: { alt?: string } }[]).find(svg => svg.props.alt === 'ok')
-      expect(dot, `${surface} dot`).toBeDefined()
-      await band.unmount()
-    }
+    // The desktop: the kit's cache icon in the state's colour and the timer alone, the whole
+    // line in a hover card the pointer on the icon reveals.
+    const desktop = await $.ui.mount(BAND('desktop', false))
+    const icon = ((await desktop.findAll({ type: 'Svg' })) as unknown as { props: { alt?: string; source: string } }[]).find(svg => svg.props.alt === 'cache')
+    expect(icon?.props.source).toContain('stroke="#4eba65"')
+    expect((await desktop.find({ type: 'Text', text: short }))?.props.color).toBe('success')
+    const card = (await desktop.find({ key: 'band-card-cache' })) as { props: Record<string, unknown> } | undefined
+    expect(card?.props).toMatchObject({ position: 'absolute', display: 'none' })
+    const drawn = JSON.stringify(await desktop.drawn())
+    expect(drawn).toContain('"hover":{"scope":"skins-band-cache","display":"flex"}')
+    expect(drawn).toContain('"hover":{"scope":"skins-band-cache"}')
+    expect(await desktop.find({ type: 'Text', text })).toBeDefined()
+    await desktop.unmount()
   })
 }
+
+test('on the desktop Compact is one glyph, its words and the nudge in a hover card', async ($, on) => {
+  let percent = 42
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000, percent }, rateLimits: [] } }))
+  on('session.measure', () => ({ changed: [] }) as never)
+  stubEngine(on, { usage: true })
+  await startDesktop($, on)
+
+  const band = await $.ui.mount(BAND('desktop', false))
+  const button = (await band.find({ key: 'compact' })) as { props: Record<string, unknown> } | undefined
+  expect(button?.props).toMatchObject({ label: '⊟', plain: true, hotkey: '0', dimColor: true })
+  expect(await band.find({ type: 'Text', text: 'Compact the conversation · context 42%' })).toBeDefined()
+  expect(((await band.find({ key: 'band-card-compact' })) as { props: Record<string, unknown> } | undefined)?.props).toMatchObject({ position: 'absolute', display: 'none' })
+  expect(JSON.stringify(await band.drawn())).toContain('"hover":{"scope":"skins-band-compact","display":"flex"}')
+  await band.unmount()
+
+  percent = 72
+  await $.session.measure({ context: { window: 200000, percent }, rateLimits: [] } as never)
+  const nudge = await $.ui.mount(BAND('desktop', false))
+  expect(((await nudge.find({ key: 'compact' })) as { props: Record<string, unknown> } | undefined)?.props.variant).toBe('primary')
+  expect(await nudge.find({ type: 'Text', text: 'Context is 72% full · compact now' })).toBeDefined()
+  await nudge.unmount()
+
+  // The terminal keeps the words: `0: Compact now` and the warning beside it.
+  const terminal = await $.ui.mount(BAND('terminal', false))
+  expect(((await terminal.find({ key: 'compact' })) as { props: Record<string, unknown> } | undefined)?.props.label).toBe('Compact now')
+  expect(await terminal.find({ type: 'Text', text: 'Context is 72% full' })).toBeDefined()
+})
 
 test('without cache-tax the band shows no cache line', async ($, on) => {
   stubEngine(on)
   await startDesktop($, on)
 
   const band = await $.ui.mount(BAND('terminal', false))
-  expect(await band.find({ type: 'Text', text: /^cache:/ })).toBeUndefined()
+  expect(await band.find({ type: 'Text', text: /^cache/ })).toBeUndefined()
   await band.unmount()
 })
 
 test('the cache line warns in the last ten minutes and turns red once cold', async () => {
-  expect(cacheLine({ phase: 'warm', coldAt: 9 * 60_000, warmUntil: null }, 0)).toEqual({ text: 'cache: cold in 9m', tone: 'warn' })
-  expect(cacheLine({ phase: 'cold', coldAt: null, warmUntil: null }, 0)).toEqual({ text: 'cache: cold', tone: 'err' })
+  expect(cacheLine({ phase: 'warm', coldAt: 9 * 60_000, warmUntil: null }, 0)).toEqual({ text: 'cache: cold in 9m', tone: 'warn', short: '9m' })
+  expect(cacheLine({ phase: 'cold', coldAt: null, warmUntil: null }, 0)).toEqual({ text: 'cache: cold', tone: 'err', short: '' })
   expect(cacheLine({ phase: 'unknown', coldAt: null, warmUntil: null }, 0)).toBeNull()
 })
 
@@ -2281,7 +2316,7 @@ test('another mod can draw every catalog tree and the tab preview, on both surfa
       const pane = await $.ui.mount({ plugin: 'drawer', viewport: { columns: 100, rows: 30 }, surface, component: 'Pane', requestId: 'catalog-check', props: { ...PANE.props, bodyColumns } })
       const drawn = JSON.stringify(await pane.drawn())
 
-      expect(drawn, `${surface} ${bodyColumns}`).toContain('cache: cold in 42m')
+      expect(drawn, `${surface} ${bodyColumns}`).toContain(surface === 'terminal' ? 'cache 42m' : 'cache: cold in 42m')
       expect(drawn, `${surface} ${bodyColumns}`).not.toContain('"type":"Button"')
       await pane.unmount()
     }
