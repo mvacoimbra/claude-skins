@@ -360,17 +360,65 @@ function parseCustom(raw: unknown): Record<string, CustomSkin> {
   )
 }
 
-async function load($: EngineInterface): Promise<void> {
+// The same value, whatever order its keys were written in.
+function stable(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stable).join(',')}]`
+  }
+
+  if (value !== null && typeof value === 'object') {
+    return `{${Object.keys(value)
+      .sort()
+      .map(key => `${JSON.stringify(key)}:${stable((value as Record<string, unknown>)[key])}`)
+      .join(',')}}`
+  }
+
+  return JSON.stringify(value) ?? 'undefined'
+}
+
+// The user's store is the only source of truth for skins' settings: one file per user, shared
+// by every session. This reads it into the session's atoms (this folder's own prefs when it is
+// pinned), and writes only an atom whose value changed, so a draw follows a real change only.
+// Called at the start, before every /mods panel, and on a slow clock, so a change made in one
+// session reaches the others.
+async function syncFromStore($: EngineInterface): Promise<void> {
   const custom = parseCustom(await $.store.get('custom'))
   const names = skinNames(custom)
   const folders = parseFolders(await $.store.get('folders'), names)
-  const folder = await $.session.cwd()
-  sessionCwd = folder
+  const folder = await cwdOf($)
   const prefs = prefsFor(folder, folders, parsePrefs(await $.store.get('prefs'), names))
+  const pinned = Object.hasOwn(folders, folder)
 
-  await update($, customAtom, () => custom)
-  await update($, prefsAtom, () => prefs)
-  await update($, pinnedAtom, () => Object.hasOwn(folders, folder))
+  if (stable(await read($, customAtom)) !== stable(custom)) {
+    await update($, customAtom, () => custom)
+  }
+
+  if (stable(await read($, prefsAtom)) !== stable(prefs)) {
+    await update($, prefsAtom, () => prefs)
+  }
+
+  if ((await read($, pinnedAtom)) !== pinned) {
+    await update($, pinnedAtom, () => pinned)
+  }
+}
+
+// How often the store is read again for another session's change.
+const SYNC_MS = 3000
+let syncTicker: Timer | undefined
+
+function followStore($: EngineInterface): void {
+  syncTicker?.cancel()
+  syncTicker = $.clock.every(SYNC_MS, () => {
+    void syncFromStore($).catch((error: unknown) => {
+      $.ui.log(`settings sync: ${error instanceof Error ? error.message : String(error)}`, { to: 'debug' })
+    })
+  })
+}
+
+async function load($: EngineInterface): Promise<void> {
+  sessionCwd = await $.session.cwd()
+  await syncFromStore($)
+  followStore($)
   // Links stay text if the environment cannot be read; the look loads either way.
   await readHyperlinks($).catch((error: unknown) => {
     $.ui.log(`hyperlink check: ${error instanceof Error ? error.message : String(error)}`, { to: 'debug' })
@@ -522,11 +570,13 @@ async function askForStar($: EngineInterface): Promise<void> {
   }
 }
 
+// Every change goes to the user's store at once, then to this session's atoms: the store
+// first, so the sync clock never reads it back older than the atoms.
 async function commit($: EngineInterface, state: DesignState): Promise<void> {
-  await update($, customAtom, () => state.custom)
-  await update($, prefsAtom, () => state.prefs)
   await $.store.set('custom', state.custom)
   await savePrefs($, state.prefs)
+  await update($, customAtom, () => state.custom)
+  await update($, prefsAtom, () => state.prefs)
 }
 
 async function designState($: EngineInterface): Promise<DesignState> {
@@ -720,6 +770,8 @@ export const register: Register = on => {
 
   on('skins.panel', async ($, e) => {
     panelLang = e.lang === 'pt' ? 'pt' : 'en'
+    // Another session may have changed a setting since this one last looked.
+    await syncFromStore($)
 
     return { value: await panelFor($, e, panelLang) }
   })
