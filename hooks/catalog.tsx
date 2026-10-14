@@ -194,10 +194,15 @@ export function skinsCatalog(look: Look, columns: number, lang: Lang): SkinsCata
   }
 
   const now = 0
-  add('usage-band', n('Usage band', 'Faixa de uso', 'Context and plan-limit meters above the prompt, with Compact', 'Medidores de contexto e de limite acima do prompt, com Compactar'), usageBand(look, [{ label: 'context', percent: 42 }, { label: '5h', percent: 18 }, { label: '7d', percent: 7 }], true, () => undefined))
-  add('usage-band-countdown', n('Usage band with reset countdowns', 'Faixa de uso com contagem para renovar', 'How long until each limit resets, to the second', 'Quanto falta para cada limite renovar, ao segundo'), usageBand(look, [{ label: 'context', percent: 42 }, { label: '5h', percent: 18, resets: '4h05m09s' }, { label: '7d', percent: 7, resets: '3d 4h05m09s' }], true, () => undefined))
-  add('usage-band-nudge', n('Usage band, nudging to compact', 'Faixa de uso, sugerindo compactar', 'From 70% context: a warning and Compact now', 'A partir de 70% de contexto: um aviso e Compactar agora'), usageBand(look, [{ label: 'context', percent: 85 }, { label: '5h', percent: 61 }], true, () => undefined))
-  add('usage-band-limits', n('Usage band, limits near the end', 'Faixa de uso, limites perto do fim', 'A meter turns warn from 80% and err from 95%', 'Um medidor fica de aviso a partir de 80% e de erro a partir de 95%'), usageBand(look, [{ label: 'context', percent: 30 }, { label: '5h', percent: 88 }, { label: '7d', percent: 97 }], false, () => undefined))
+  add('usage-band', n('Usage band', 'Faixa de uso', 'Context and plan-limit meters above the prompt, with the Compact control (one glyph on the desktop, 0: Compact on the terminal)', 'Medidores de contexto e de limite acima do prompt, com o controle de compactar (um símbolo no desktop, 0: Compact no terminal)'), usageBand(look, [{ label: 'context', percent: 42 }, { label: '5h', percent: 18 }, { label: '7d', percent: 7 }], true, () => undefined, null, undefined, width))
+  add('usage-band-countdown', n('Usage band with reset countdowns', 'Faixa de uso com contagem para renovar', 'How long until each limit resets, to the second', 'Quanto falta para cada limite renovar, ao segundo'), usageBand(look, [{ label: 'context', percent: 42 }, { label: '5h', percent: 18, resets: '4h05m09s' }, { label: '7d', percent: 7, resets: '3d 4h05m09s' }], true, () => undefined, null, undefined, width))
+  add('usage-band-nudge', n('Usage band, nudging to compact', 'Faixa de uso, sugerindo compactar', 'From 70% context: Compact turns to the accent; its hover card (the terminal: a line) says how full the context is', 'A partir de 70% de contexto: o compactar fica na cor de destaque; o cartão ao passar o mouse (no terminal, uma linha) diz o quanto o contexto está cheio'), usageBand(look, [{ label: 'context', percent: 85 }, { label: '5h', percent: 61 }], true, () => undefined, null, undefined, width))
+  if (svg !== undefined) {
+    add('usage-band-compact-card', n('Usage band: Compact’s hover card', 'Faixa de uso: cartão do compactar', 'What the Compact control does, with the context percent, shown while the pointer is on it', 'O que o controle de compactar faz, com a porcentagem de contexto, mostrado com o mouse em cima'), usageBand(look, [{ label: 'context', percent: 42 }, { label: '5h', percent: 18 }], true, () => undefined, null, 'compact', width))
+    add('usage-band-nudge-card', n('Usage band: Compact’s hover card, nudging', 'Faixa de uso: cartão do compactar, sugerindo', 'From 70% context the card warns how full it is', 'A partir de 70% de contexto o cartão avisa o quanto está cheio'), usageBand(look, [{ label: 'context', percent: 72 }, { label: '5h', percent: 18 }], true, () => undefined, null, 'compact', width))
+  }
+
+  add('usage-band-limits', n('Usage band, limits near the end', 'Faixa de uso, limites perto do fim', 'A meter turns warn from 80% and err from 95%', 'Um medidor fica de aviso a partir de 80% e de erro a partir de 95%'), usageBand(look, [{ label: 'context', percent: 30 }, { label: '5h', percent: 88 }, { label: '7d', percent: 97 }], false, () => undefined, null, undefined, width))
 
   for (const [id, state, en, pt] of [
     ['cache-warm', { phase: 'warm', coldAt: now + 42 * 60_000, warmUntil: null }, 'Cache countdown: warm', 'Contagem do cache: aquecido'],
@@ -205,7 +210,11 @@ export function skinsCatalog(look: Look, columns: number, lang: Lang): SkinsCata
     ['cache-kept', { phase: 'warm', coldAt: now + 42 * 60_000, warmUntil: now + 5 * 3600_000 }, 'Cache countdown: kept warm', 'Contagem do cache: mantido aquecido'],
     ['cache-cold', { phase: 'cold', coldAt: null, warmUntil: null }, 'Cache countdown: cold', 'Contagem do cache: frio'],
   ] as const) {
-    add(id, n(en, pt, "cache-tax's countdown in the usage band", 'A contagem do cache-tax na faixa de uso'), usageBand(look, [{ label: 'context', percent: 42 }], false, () => undefined, cacheLine(state, now)))
+    add(id, n(en, pt, "cache-tax's countdown in the usage band: the cache icon in its state's colour and the timer (the terminal: cache 42m)", 'A contagem do cache-tax na faixa de uso: o ícone do cache na cor do estado e o tempo (no terminal: cache 42m)'), usageBand(look, [{ label: 'context', percent: 42 }], false, () => undefined, cacheLine(state, now), undefined, width))
+  }
+
+  if (svg !== undefined) {
+    add('cache-card', n('Cache countdown: hover card', 'Contagem do cache: cartão', 'The whole cache line, shown while the pointer is on the cache icon', 'A linha inteira do cache, mostrada com o mouse no ícone do cache'), usageBand(look, [{ label: 'context', percent: 42 }, { label: '5h', percent: 18 }], true, () => undefined, cacheLine({ phase: 'warm', coldAt: now + 42 * 60_000, warmUntil: now + 5 * 3600_000 + 12 * 60_000 }, now), 'cache', width))
   }
 
   add('ask-band', n('Band above a question', 'Faixa acima de uma pergunta', 'The questions of an AskUserQuestion dialog, as tabs', 'As perguntas de um diálogo AskUserQuestion, como abas'), askBand(look, ['Approach', 'Store']))
