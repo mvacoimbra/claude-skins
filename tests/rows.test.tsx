@@ -77,8 +77,13 @@ function stubEngine(on: On, own: { env?: boolean; store?: boolean; toast?: boole
     on('env.get', () => ({ value: undefined }))
   }
   if (!own.store) {
-    on('store.get', () => ({ value: undefined }))
-    on('store.set', () => ({ value: undefined }))
+    // The user's store, in memory: what a press writes, the next read finds.
+    const stored: Record<string, unknown> = {}
+    on('store.get', ($, e) => ({ value: stored[e.key] }))
+    on('store.set', ($, e) => {
+      stored[e.key] = e.value
+      return { value: undefined }
+    })
   }
   if (!own.toast) {
     on('ui.toast', () => ({ value: undefined }))
@@ -279,7 +284,7 @@ test('the Skins tab offers left, right and no outline for the prompt', async ($,
   stubEngine(on)
   const prompt = itemOf(await panelOf($), 'choice:prompt')
 
-  expect(prompt).toMatchObject({ kind: 'choice', value: 'left', options: [{ value: 'left', label: 'left' }, { value: 'right', label: 'right' }, { value: 'plain', label: 'no outline' }] })
+  expect(prompt).toMatchObject({ kind: 'choice', value: 'left', options: [{ value: 'left', label: 'Left' }, { value: 'right', label: 'Right' }, { value: 'plain', label: 'No outline' }] })
   await act($, 'choice:prompt', 'plain')
   expect(itemOf(await panelOf($), 'choice:prompt')).toMatchObject({ value: 'plain' })
 
@@ -319,6 +324,10 @@ test('the markdown pack draws alerts and task lists everywhere, headings and par
   const reply = (surface: (typeof SURFACES)[number]) =>
     ({ ...SITE, surface, component: 'AssistantMessage', requestId: `md-${surface}`, props: { text, isFirstOfReply: true } }) as const
 
+  // The colours checked here are noir's.
+
+  await viaPane($, 'noir')
+
   const terminal = await $.ui.mount(reply('terminal'))
   expect(await terminal.find({ type: 'Text', text: '▍ Plan' })).toBeDefined()
   expect(spanColor((await terminal.find({ type: 'Text', text: /Ran 54 tests/ })) as Found, '3.2s')).toBe('#f5f5f5')
@@ -329,7 +338,9 @@ test('the markdown pack draws alerts and task lists everywhere, headings and par
   await terminal.unmount()
 
   const desktop = await $.ui.mount(reply('desktop'))
-  expect(await desktop.find({ type: 'Text', text: '▲ Warning' })).toBeDefined()
+  // The desktop leads with the kit's alert icon instead of the glyph.
+  expect(await desktop.find({ type: 'Text', text: 'Warning' })).toBeDefined()
+  expect(((await desktop.findAll({ type: 'Svg' })) as { props: { alt?: string } }[]).some(svg => svg.props.alt === 'alert')).toBe(true)
   // The desktop's own markdown sets headings and paragraphs.
   expect(((await desktop.find({ type: 'Markdown' })) as Found)?.props.text).toBe('## Plan\n\nRan 54 tests in 3.2s.')
   await desktop.unmount()
@@ -510,7 +521,7 @@ test('the Skins tab holds every option in six sections, with a live preview, on 
     const panel = await panelOf($, 'en', surface)
 
     expect(panel.title).toBe('Skins')
-    expect(panel.summary).toBe('skin noir')
+    expect(panel.summary).toBe('Claude')
     expect(panel.sections.map(section => section.id)).toEqual(Object.keys(ids))
 
     for (const section of panel.sections) {
@@ -519,7 +530,7 @@ test('the Skins tab holds every option in six sections, with a live preview, on 
     }
 
     expect(panel.sections[0]?.items.some(item => item.kind === 'tree')).toBe(true)
-    expect(itemOf(panel, 'skin')).toMatchObject({ value: 'noir' })
+    expect(itemOf(panel, 'skin')).toMatchObject({ value: 'claude' })
   }
 })
 
@@ -527,7 +538,7 @@ test('the Skins tab speaks Portuguese when the hub does', async ($, on) => {
   stubEngine(on)
   const panel = await panelOf($, 'pt')
 
-  expect(panel.sections.map(section => section.title)).toEqual(['Tema', 'Aparência', 'Conteúdo', 'Faixa de uso', 'Cores', 'Ações'])
+  expect(panel.sections.map(section => section.title)).toEqual(['Skin', 'Aparência', 'Respostas e saídas', 'Faixa de uso', 'Cores', 'Copiar e galeria'])
   expect(itemOf(panel, 'toggle:rail')).toMatchObject({ label: 'Trilho do turno' })
   expect(JSON.stringify(panel)).not.toContain('Turn rail')
 })
@@ -729,6 +740,10 @@ test('a code fence is a card on the desktop, highlighted rows in the terminal, m
   const reply = (surface: (typeof SURFACES)[number]) =>
     ({ ...SITE, surface, component: 'AssistantMessage', requestId: 'c1', props: { text: 'Run:\n\n```ts\nconst a = 1\n```', isFirstOfReply: true } }) as const
 
+  // The colours checked here are noir's.
+
+  await viaPane($, 'noir')
+
   const desktop = await $.ui.mount(reply('desktop'))
   expect(((await desktop.find({ type: 'Svg' })) as { props: { source: string } } | undefined)?.props.source).toContain('const')
   await desktop.unmount()
@@ -753,14 +768,14 @@ test('a Mermaid fence is a chart card on the desktop and a laid-out diagram in t
 
   const desktop = await $.ui.mount(chartReply('desktop'))
   const card = (await desktop.find({ type: 'Svg' })) as { props: { source: string; alt: string } } | undefined
-  expect(card?.props.source).toContain('FLOWCHART')
+  expect(card?.props.source).toContain('>Flowchart<')
   expect(card?.props.alt).toContain('Build → Live (ship)')
   await desktop.unmount()
 
   // Boxes drawn in cells, each in a colour of its own, the links quiet.
   const terminal = await $.ui.mount(chartReply('terminal'))
   expect(await terminal.find({ type: 'Svg' })).toBeUndefined()
-  expect(await terminal.find({ type: 'Text', text: 'FLOWCHART' })).toBeDefined()
+  expect(await terminal.find({ type: 'Text', text: 'Flowchart' })).toBeDefined()
   const art = (await terminal.findAll({ type: 'Text' })).map(text => JSON.stringify(text.children ?? []))
   expect(art.some(row => row.includes('┌') && row.includes('┐'))).toBe(true)
   expect(art.some(row => row.includes('▼'))).toBe(true)
@@ -771,7 +786,7 @@ test('a Mermaid fence is a chart card on the desktop and a laid-out diagram in t
   await terminal.unmount()
 
   const sequence = await $.ui.mount(chartReply('terminal', '```mermaid\nsequenceDiagram\n  Alice->>Bob: Hi\n  Bob-->>Alice: Yo\n```'))
-  expect(await sequence.find({ type: 'Text', text: 'SEQUENCE' })).toBeDefined()
+  expect(await sequence.find({ type: 'Text', text: 'Sequence' })).toBeDefined()
   expect(await sequence.find({ type: 'Text', text: 'Alice' })).toBeDefined()
   await sequence.unmount()
 
@@ -804,13 +819,13 @@ test('the new chart kinds draw as cards on the desktop and as cell art in the te
 
   const gantt = await $.ui.mount(chartReply('terminal', GANTT))
   expect(await gantt.find({ type: 'Svg' })).toBeUndefined()
-  expect(await gantt.find({ type: 'Text', text: 'GANTT' })).toBeDefined()
+  expect(await gantt.find({ type: 'Text', text: 'Gantt' })).toBeDefined()
   const bars = (await gantt.findAll({ type: 'Text' })).map(text => JSON.stringify(text.children ?? []))
   expect(bars.some(row => row.includes('█'))).toBe(true)
   await gantt.unmount()
 
   const git = await $.ui.mount(chartReply('terminal', GIT))
-  expect(await git.find({ type: 'Text', text: 'GIT GRAPH' })).toBeDefined()
+  expect(await git.find({ type: 'Text', text: 'Git graph' })).toBeDefined()
   const lanes = (await git.findAll({ type: 'Text' })).map(text => JSON.stringify(text.children ?? []))
   expect(lanes.some(row => row.includes('◉'))).toBe(true)
   await git.unmount()
@@ -884,7 +899,7 @@ test('a diagram too wide for the terminal falls back to rows, one nothing can re
   await fallback.unmount()
 
   const broken = await $.ui.mount(chartReply('terminal', '```mermaid\nsequenceDiagram\n  ->>: ???\n```'))
-  expect(await broken.find({ type: 'Text', text: 'SEQUENCE' })).toBeUndefined()
+  expect(await broken.find({ type: 'Text', text: 'Sequence' })).toBeUndefined()
   await broken.unmount()
 })
 
@@ -1013,6 +1028,10 @@ test('on a light Claude Code theme the skin draws dark text for a light backgrou
   on('command.register', () => ({ value: { command: 'skin' } }))
   on('tool.register', () => ({ value: { tool: 'mcp__skins__design' } }))
 
+  // The colours checked here are noir's.
+
+  await viaPane($, 'noir')
+
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
 
   const row = await $.ui.mount(toolUse(call('Bash', { command: 'ls' })))
@@ -1082,6 +1101,10 @@ test('an auto theme follows the system, and SKINS_THEME overrides the setting', 
   on('command.register', () => ({ value: { command: 'skin' } }))
   on('tool.register', () => ({ value: { tool: 'mcp__skins__design' } }))
 
+  // The colours checked here are noir's.
+
+  await viaPane($, 'noir')
+
   await $.session.start({ surface: 'desktop', isInteractive: true, cwd: '/work' })
   const light = await $.ui.mount(toolUse(call('Bash', { command: 'ls' })))
   expect(spanColor(await light.find({ type: 'Text', text: /Bash/ }), 'Bash')).toBe('#111111')
@@ -1100,6 +1123,10 @@ test('a theme set mid-session is drawn at once, though the settings list still h
   on('session.start', () => ({ cwd: '/work' }))
   on('command.register', () => ({ value: { command: 'skin' } }))
   on('tool.register', () => ({ value: { tool: 'mcp__skins__design' } }))
+
+  // The colours checked here are noir's.
+
+  await viaPane($, 'noir')
 
   await $.session.start({ surface: 'desktop', isInteractive: true, cwd: '/work' })
   await $.config.set({ key: 'theme', value: 'dark' } as never)
@@ -1120,6 +1147,10 @@ test('an auto theme follows the system when it changes mid-session', async ($, o
   on('session.start', () => ({ cwd: '/work' }))
   on('command.register', () => ({ value: { command: 'skin' } }))
   on('tool.register', () => ({ value: { tool: 'mcp__skins__design' } }))
+
+  // The colours checked here are noir's.
+
+  await viaPane($, 'noir')
 
   await $.session.start({ surface: 'desktop', isInteractive: true, cwd: '/work' })
   const before = await $.ui.mount(toolUse(call('Bash', { command: 'ls' })))
@@ -1938,21 +1969,21 @@ test('a display formula is stacked art in the terminal and a vector card on the 
     ({ ...SITE, surface, component: 'AssistantMessage', requestId: `math-${surface}`, props: { text, isFirstOfReply: true } }) as const
 
   const terminal = await $.ui.mount(reply('terminal'))
-  expect(await terminal.find({ type: 'Text', text: 'MATH' })).toBeDefined()
+  expect(await terminal.find({ type: 'Text', text: 'Math' })).toBeDefined()
   expect(await terminal.find({ type: 'Text', text: '∑' })).toBeDefined()
   expect((await terminal.find({ type: 'Text', text: 'where xᵢ is a sample.' })) ?? (await terminal.find({ type: 'Markdown', text: 'where xᵢ is a sample.' }))).toBeDefined()
   await terminal.unmount()
 
   const desktop = await $.ui.mount(reply('desktop'))
   const svg = (await desktop.find({ type: 'Svg' })) as { props: { source: string; alt: string } } | undefined
-  expect(svg?.props.source).toContain('MATH')
+  expect(svg?.props.source).toContain('>Math<')
   expect(svg?.props.alt.startsWith('math:\n')).toBe(true)
   await desktop.unmount()
 
   await viaPane($, 'math off')
   const off = await $.ui.mount(reply('terminal'))
   // Off, the formula stays as written for the markdown pack to draw.
-  expect(await off.find({ type: 'Text', text: 'MATH' })).toBeUndefined()
+  expect(await off.find({ type: 'Text', text: 'Math' })).toBeUndefined()
   expect(await off.find({ type: 'Text', text: 'where $x_i$ is a sample.' })).toBeDefined()
 })
 
@@ -2015,6 +2046,8 @@ test('the terminal draws shell output as a card: the command and a tick, nothing
 test('a failed shell call shows its exit code, and stderr under its own label in the error colour', async ($, on) => {
   stubEngine(on)
   const [id = '', other = ''] = await ranShells($, on, ['pnpm tsc', 'pnpm lint'])
+  // The colours checked here are noir's.
+  await viaPane($, 'noir')
   const palette = noir.palette
 
   await closeRow($, id)
@@ -2177,7 +2210,10 @@ for (const [plugin, text] of [[CACHE_TAX, 'cache: cold in 42m'], [CACHE_TAX_KEPT
       const line = await band.find({ type: 'Text', text })
 
       expect(line, surface).toBeDefined()
-      expect(line?.props.color).toBe(noir.palette.ok)
+      // A live state in the kit's grammar: Claude Code's own success colour, with its dot.
+      expect(line?.props.color).toBe('success')
+      const dot = surface === 'terminal' ? await band.find({ type: 'Text', text: '●' }) : ((await band.findAll({ type: 'Svg' })) as { props: { alt?: string } }[]).find(svg => svg.props.alt === 'ok')
+      expect(dot, `${surface} dot`).toBeDefined()
       await band.unmount()
     }
   })

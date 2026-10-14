@@ -17,8 +17,13 @@ function stub(on: On, env: Record<string, string> = {}, copied: string[] = []) {
   mock.clock(on, { now: 10_000 })
   on('session.cwd', () => ({ value: '/work' }))
   on('env.get', ($, e) => ({ value: env[e.name] }))
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
+  // The user's store, in memory: what a press writes, the next read finds.
+  const stored: Record<string, unknown> = {}
+  on('store.get', ($, e) => ({ value: stored[e.key] }))
+  on('store.set', ($, e) => {
+    stored[e.key] = e.value
+    return { value: undefined }
+  })
   on('ui.toast', () => ({ value: undefined }))
   on('ui.log', () => ({ value: undefined }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -133,6 +138,8 @@ test('files this turn created or edited take their colour in rows and prose, unt
       ? { result: { type: 'create', filePath: '/work/src/new.ts', content: 'x', structuredPatch: [], originalFile: null } }
       : { result: { filePath: '/work/src/old.ts', structuredPatch: [], oldString: 'a', newString: 'b', originalFile: 'a', userModified: false, replaceAll: false } },
   )
+  // The colours checked here are noir's.
+  await viaPane($, 'noir')
   await start($)
   await $.turn.start({ text: 'go', turnId: 't1' } as never)
   await $.tool.call({ tool: 'Write', file_path: '/work/src/new.ts', content: 'x' })

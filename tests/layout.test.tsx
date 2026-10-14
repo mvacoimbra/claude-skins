@@ -17,8 +17,13 @@ function stub(on: On, copied: string[] = []) {
   mock.clock(on, { now: 10_000 })
   on('session.cwd', () => ({ value: '/work' }))
   on('env.get', () => ({ value: undefined }))
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
+  // The user's store, in memory: what a press writes, the next read finds.
+  const stored: Record<string, unknown> = {}
+  on('store.get', ($, e) => ({ value: stored[e.key] }))
+  on('store.set', ($, e) => {
+    stored[e.key] = e.value
+    return { value: undefined }
+  })
   on('ui.toast', () => ({ value: undefined }))
   on('ui.log', () => ({ value: undefined }))
   on('ui.copy', ($, e) => {
@@ -53,6 +58,10 @@ test('a diff fence reads its hunks, numbered from its headers or from 1', () => 
 test('a diff fence on the terminal is numbered rows in the skin’s colours, with copy new only', async ($, on) => {
   const copied: string[] = []
   stub(on, copied)
+
+  // The colours checked here are noir's.
+
+  await viaPane($, 'noir')
 
   const ui = await $.ui.mount(reply(DIFF))
   const added = (await ui.find({ type: 'Text', text: /11 \+ {3}return n <= 10/ })) as Node | undefined

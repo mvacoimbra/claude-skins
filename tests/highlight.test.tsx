@@ -161,8 +161,13 @@ function stub(on: On) {
   mock.clock(on, { now: 10_000 })
   on('session.cwd', () => ({ value: '/work' }))
   on('env.get', () => ({ value: undefined }))
-  on('store.get', () => ({ value: undefined }))
-  on('store.set', () => ({ value: undefined }))
+  // The user's store, in memory: what a press writes, the next read finds.
+  const stored: Record<string, unknown> = {}
+  on('store.get', ($, e) => ({ value: stored[e.key] }))
+  on('store.set', ($, e) => {
+    stored[e.key] = e.value
+    return { value: undefined }
+  })
   on('ui.toast', () => ({ value: undefined }))
   on('ui.log', () => ({ value: undefined }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000, percent: 42 }, rateLimits: [] } }))
@@ -217,6 +222,10 @@ test('shell output is coloured in both cards, and plain with highlight off', asy
   const output = { stdout: 'src/a.ts:3 error in 12ms', stderr: '', interrupted: false }
   const result = (surface: 'terminal' | 'desktop', id: string) =>
     ({ ...SITE, surface, component: 'ToolResult', requestId: id, props: { tool_use_id: id, tool: 'Bash', output, isErrored: false } }) as const
+
+  // The colours checked here are noir's.
+
+  await viaPane($, 'noir')
 
   const terminal = await $.ui.mount(result('terminal', 'o1'))
   const line = await terminal.find({ type: 'Text', text: 'src/a.ts:3 error in 12ms' })

@@ -68,7 +68,7 @@ test('display formulas come out of a reply as their own segments', () => {
 test('a formula card has a header, a divider, paths for radicals and an alt in Unicode', () => {
   const card = mathSvg('\\sqrt{\\frac{a}{b}} = \\left( \\frac{x}{y} \\right)', tokyoNight.palette, 800, true)
 
-  expect(card.source).toContain('MATH')
+  expect(card.source).toContain('>Math<')
   expect(card.source).toContain('<line')
   expect(card.source).toContain('<path')
   expect(card.width).toBeGreaterThanOrEqual(480)

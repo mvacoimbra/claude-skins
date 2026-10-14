@@ -174,7 +174,7 @@ test('the design tool saves, applies, changes settings and deletes', async () =>
   expect(gone.state.prefs.skin).toBe(DEFAULT_PREFS.skin)
   expect(runDesign({ action: 'delete', name: 'nord' }, start).isError).toBe(true)
   expect(runDesign({ action: 'apply', name: 'nope' }, start).isError).toBe(true)
-  expect(JSON.parse(runDesign({ action: 'show' }, start).text).current).toBe('noir')
+  expect(JSON.parse(runDesign({ action: 'show' }, start).text).current).toBe('claude')
 })
 
 test('stored prefs that are stale or hand-edited fall back to defaults', async () => {
@@ -279,7 +279,7 @@ test('code is split into comments, strings, numbers and keywords by language', a
     'keyword', 'plain', 'plain', 'plain', 'string', 'plain', 'comment',
   ])
   expect(tokenize('x = 1  # note', 'python').at(-1)).toEqual({ text: '# note', role: 'comment' })
-  expect(codeSvg('a\nb', 'ts', tokyoNight.palette, 600).source).toContain('TS')
+  expect(codeSvg('a\nb', 'ts', tokyoNight.palette, 600).source).toContain('TypeScript')
 })
 
 test('plan limits read as 5h and 7d, and a meter warns as it fills', async () => {
@@ -366,7 +366,8 @@ test('every built-in skin names itself once and fills every slot with a colour, 
   const hex = /^#[0-9a-f]{6}$/
   const slots = Object.keys(tokyoNight.palette)
 
-  expect(SKINS.length).toBe(15)
+  expect(SKINS.length).toBe(16)
+  expect(SKINS[0]?.name, 'Claude Code’s own colours come first, as the default').toBe('claude')
   expect(new Set(SKINS.map(skin => skin.name)).size).toBe(SKINS.length)
 
   for (const skin of SKINS) {
