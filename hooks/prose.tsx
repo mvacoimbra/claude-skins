@@ -1,16 +1,23 @@
 import type { AlertType, Block, Line, Run, RunStyle, Task } from './blocks'
 import { safeHref, touchOf } from './links'
+import { icon } from './kit/kit'
+import type { IconName } from './kit/icons'
+import { inkOf } from './kit/tone'
+import type { KitTone } from './kit/tone'
+import { kitFor } from './ink'
 import type { Look } from './rows'
 import type { Palette } from './skin'
 
 type Glyphs = { mark: string; done: string; open: string }
 
-const ALERTS: Record<AlertType, { title: string; slot: keyof Palette; unicode: string; ascii: string }> = {
-  note: { title: 'Note', slot: 'web', unicode: 'ℹ', ascii: 'i' },
-  tip: { title: 'Tip', slot: 'ok', unicode: '✦', ascii: '*' },
-  important: { title: 'Important', slot: 'mcp', unicode: '❖', ascii: '!' },
-  warning: { title: 'Warning', slot: 'warn', unicode: '▲', ascii: '!' },
-  caution: { title: 'Caution', slot: 'err', unicode: '✖', ascii: 'x' },
+// Each alert as the kit's notice draws one: a state's tone and icon, a hairline outline. The
+// glyphs are the terminal's, which draws no icons.
+const ALERTS: Record<AlertType, { title: string; tone: KitTone; icon: IconName; unicode: string; ascii: string }> = {
+  note: { title: 'Note', tone: 'accent', icon: 'info', unicode: 'ℹ', ascii: 'i' },
+  tip: { title: 'Tip', tone: 'ok', icon: 'check', unicode: '✦', ascii: '*' },
+  important: { title: 'Important', tone: 'accent', icon: 'alert', unicode: '❖', ascii: '!' },
+  warning: { title: 'Warning', tone: 'warn', icon: 'alert', unicode: '▲', ascii: '!' },
+  caution: { title: 'Caution', tone: 'err', icon: 'alert', unicode: '✖', ascii: 'x' },
 }
 
 const glyphs = (look: Look): Glyphs =>
@@ -35,7 +42,7 @@ function pathSlot(look: Look, text: string): keyof Palette {
 
 function runText(look: Look, run: Run) {
   const { Link, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const slot = run.style === 'path' ? pathSlot(look, run.text) : SLOTS[run.style]
   const href = run.style === 'url' && look.links === true ? safeHref(run.text) : null
 
@@ -73,7 +80,7 @@ function lineRow(look: Look, line: Line) {
 
   return (
     <Box flexDirection="row" paddingLeft={line.depth * 2}>
-      <Text color={look.skin.palette.muted}>{`${mark} `}</Text>
+      <Text color={look.ink.muted}>{`${mark} `}</Text>
       {body}
     </Box>
   )
@@ -81,7 +88,7 @@ function lineRow(look: Look, line: Line) {
 
 function headingRow(look: Look, level: number, text: string) {
   const { Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
 
   return (
     <Text color={level <= 2 ? palette.user : palette.fg} bold underline={level === 1}>
@@ -93,11 +100,21 @@ function headingRow(look: Look, level: number, text: string) {
 function alertBox(look: Look, type: AlertType, body: string) {
   const { Box, Text, Markdown } = look.ui
   const alert = ALERTS[type]
-  const color = look.skin.palette[alert.slot]
+  const k = kitFor(look)
+  const color = inkOf(look.t, alert.tone)
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={color} paddingX={1}>
-      <Text color={color} bold>{`${look.prefs.icons === 'ascii' ? alert.ascii : alert.unicode} ${alert.title}`}</Text>
+    <Box flexDirection="column" borderStyle="round" borderColor={look.ink.line} paddingX={1}>
+      {k.vector ? (
+        <Box flexDirection="row" columnGap={1} alignItems="center">
+          {icon(k, alert.icon, alert.tone)}
+          <Text color={color} bold>
+            {alert.title}
+          </Text>
+        </Box>
+      ) : (
+        <Text color={color} bold>{`${look.prefs.icons === 'ascii' ? alert.ascii : alert.unicode} ${alert.title}`}</Text>
+      )}
       {body === '' ? null : <Markdown text={body} />}
     </Box>
   )
@@ -105,7 +122,7 @@ function alertBox(look: Look, type: AlertType, body: string) {
 
 function taskRows(look: Look, items: readonly Task[]) {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const mark = glyphs(look)
   const done = items.filter(item => item.done).length
 

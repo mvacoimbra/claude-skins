@@ -3,6 +3,7 @@ import type { ArchGroup, ArchIcon, ArchService, Architecture, Block, BoxPart, Bo
 import type { Palette } from './skin'
 import { HEADER_H, PAD, seriesColor, text, wrapText } from './svg-chart-kit'
 import type { Body } from './svg-chart-kit'
+import { ICON_PATHS } from './kit/icons'
 import { escape, fitText, measure, riseDelay, strokeIcon } from './svg-kit'
 
 // The system kinds as card bodies: block diagrams and C4 as boxes flowed into frames with
@@ -338,7 +339,8 @@ const ICONS: Readonly<Record<ArchIcon, string>> = {
   cloud: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.6 4.2 4.2 0 0 0 7 18z"/>',
   database: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.66 3.58 3 8 3s8-1.34 8-3V6M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3"/>',
   disk: '<path d="M3 13h18v6H3zM3 13l3-8h12l3 8M7 16h.01M11 16h2"/>',
-  internet: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
+  // The kit's globe, the same one a web tool row leads with.
+  internet: ICON_PATHS.web,
   server: '<path d="M4 4h16v6H4zM4 14h16v6H4zM8 7h.01M8 17h.01"/>',
   generic: '<path d="M12 3l8 4.5-8 4.5-8-4.5zM4 7.5v9L12 21l8-4.5v-9M12 12v9"/>',
 }

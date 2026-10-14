@@ -29,13 +29,13 @@ export function outputLine(look: Look, text: string) {
 // Past FOLD_CODE lines it folds under `foldKey`.
 export function codeRows(look: Look, lang: string, code: string, control?: ReturnType<Ui['Button']>, foldKey = 'fold-code') {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const lines = highlight(code.replace(/\t/g, '  ').replace(/\n$/, ''), lang)
   const shown = lines.slice(0, shownCount(look, foldKey, lines.length, FOLD_CODE))
 
   return (
     <Box flexDirection="column" marginY={1}>
-      <Box flexDirection="column" borderStyle="round" borderColor={palette.muted} paddingX={1}>
+      <Box flexDirection="column" borderStyle="round" borderColor={palette.line} paddingX={1}>
         {shown.map(tokens => (
           <Text>{tokens.length === 0 || tokens.every(token => token.text === '') ? ' ' : tokenSpans(look, tokens)}</Text>
         ))}

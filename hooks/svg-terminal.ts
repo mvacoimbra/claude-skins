@@ -1,6 +1,6 @@
 import type { Palette } from './skin'
 import { outputTokens, roleColors } from './highlight'
-import { CONTROL_SLOT, escape, HEADER_MID, fitText, MONO, pill, riseDelay, staggerEnd, staggerStep, strokeIcon, svgCard } from './svg-kit'
+import { CONTROL_SLOT, escape, HEADER_MID, fitText, headerIcon, headerMeta, headerTitle, MONO, pill, PILL_H, riseDelay, rule, staggerEnd, staggerStep, svgCard } from './svg-kit'
 
 // A shell command's output as a terminal card: a status pill, the output in mono with
 // stderr in the error colour, and long output folded to its head and tail.
@@ -10,7 +10,6 @@ const LINE_H = 20
 const CODE = 12.5
 const HEAD = 6
 const TAIL = 6
-const PROMPT = '<path d="M5 7l5 5-5 5"/><path d="M12 18h7"/>'
 
 // Escape sequences for colour and cursor moves, which a card cannot draw.
 const ANSI = /\u001b\[[0-9;?]*[A-Za-z]/g
@@ -84,12 +83,15 @@ export function terminalSvg(output: ShellOutput, isErrored: boolean, palette: Pa
   })
 
   const height = HEADER_H + 6 + Math.max(1, lines.length) * LINE_H + 10
-  const note = output.returnCodeInterpretation === undefined ? 'Output' : `Output · ${output.returnCodeInterpretation}`
+  // The header: the kit's run icon, `Output` in the body text with how the command's exit
+  // code reads muted after it, and the status pill at the right.
+  const interpretation = output.returnCodeInterpretation
   const header = [
-    strokeIcon(PROMPT, 16, HEADER_MID - 9, 18, palette.fg),
-    `<text x="42" y="${HEADER_MID + 4}" font-size="12" style="fill:${palette.muted};letter-spacing:.04em">${escape(note)}</text>`,
-    pill(width - 16 - (hasControl ? CONTROL_SLOT : 0), HEADER_MID - 10, status.text, status.color, palette),
-    `<line x1="0" y1="${HEADER_H - 0.5}" x2="${width}" y2="${HEADER_H - 0.5}" stroke="${palette.muted}" stroke-opacity=".3"/>`,
+    headerIcon('run', 16, HEADER_MID - 8, palette),
+    headerTitle(42, HEADER_MID + 4.5, 'Output'),
+    interpretation === undefined ? '' : headerMeta(42 + 52, HEADER_MID + 4.5, `· ${interpretation}`, palette),
+    pill(width - 16 - (hasControl ? CONTROL_SLOT : 0), HEADER_MID - PILL_H / 2, status.text, status.color),
+    rule(HEADER_H, width, palette),
   ].join('')
 
   return {

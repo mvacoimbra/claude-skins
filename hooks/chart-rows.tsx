@@ -26,14 +26,14 @@ export function blockBar(share: number, cells: number): string {
 
 export function chartRows(look: Look, chart: Flow | XyChart | Pie, maxWidth: number) {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const { kind, count } = chartHeading(chart)
   const title = chart.kind === 'flow' ? '' : chart.title
 
   return (
     <Box flexDirection="column" marginY={1}>
       <Text color={palette.muted}>
-        <Text bold>{kind.toUpperCase()}</Text>
+        <Text bold>{kind}</Text>
         {title === '' ? '' : <Text color={palette.fg} bold>{`  ${title}`}</Text>}
         {`  ·  ${count}`}
       </Text>
@@ -45,10 +45,10 @@ export function chartRows(look: Look, chart: Flow | XyChart | Pie, maxWidth: num
 // A drawing in cells, the vendored renderer's or ours, under the same heading as the rest.
 export function artRows(look: Look, art: Art, count: string) {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const title = art.title ?? ''
 
-  const colorOf = (tone: Tone): string =>
+  const colorOf = (tone: Tone): string | undefined =>
     typeof tone === 'object'
       ? 'slot' in tone ? palette[tone.slot] : seriesColor(look, 'box' in tone ? tone.box : tone.series)
       : tone === 'muted' ? palette.muted : palette.fg
@@ -56,7 +56,7 @@ export function artRows(look: Look, art: Art, count: string) {
   return (
     <Box flexDirection="column" marginY={1}>
       <Text color={palette.muted}>
-        <Text bold>{art.kind.toUpperCase()}</Text>
+        <Text bold>{art.kind.charAt(0).toUpperCase() + art.kind.slice(1)}</Text>
         {title === '' ? '' : <Text color={palette.fg} bold>{`  ${title}`}</Text>}
         {count === '' ? '' : `  ·  ${count}`}
       </Text>
@@ -94,14 +94,14 @@ function nodeBox(look: Look, flow: Flow, id: string) {
 
   return (
     <Box borderStyle={SHAPE_BORDER[shape]} borderColor={color} paddingX={1} flexShrink={0}>
-      <Text color={look.skin.palette.fg}>{cutCell(node?.label ?? id, LABEL_MAX)}</Text>
+      <Text color={look.ink.fg}>{cutCell(node?.label ?? id, LABEL_MAX)}</Text>
     </Box>
   )
 }
 
 function flowRows(look: Look, flow: Flow, maxWidth: number) {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const forward = flow.edges.filter(edge => !flow.back.includes(edge) && edge.from !== edge.to)
   const loops = flow.edges.filter(edge => flow.back.includes(edge) || edge.from === edge.to)
   const boxWidth = (id: string) => widthOf(cutCell(labelOf(flow, id), LABEL_MAX)) + 4
@@ -156,7 +156,7 @@ function flowRows(look: Look, flow: Flow, maxWidth: number) {
 function loopRows(look: Look, flow: Flow, loops: readonly FlowEdge[]) {
   const { Text } = look.ui
 
-  return loops.length === 0 ? '' : <Text color={look.skin.palette.muted} wrap="wrap">{`  ↺  ${loops.map(edge => edgeText(flow, edge)).join('  ·  ')}`}</Text>
+  return loops.length === 0 ? '' : <Text color={look.ink.muted} wrap="wrap">{`  ↺  ${loops.map(edge => edgeText(flow, edge)).join('  ·  ')}`}</Text>
 }
 
 // --- Bar, line and pie charts -------------------------------------------------------
@@ -169,7 +169,7 @@ type BarRow = { label: string; value: number; color: string; line?: boolean; tex
 // draws their magnitude, the value beside it carrying the sign.
 function barRows(look: Look, rows: readonly BarRow[], maxWidth: number) {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const labelWidth = Math.min(LABEL_MAX, Math.max(...rows.map(row => widthOf(row.label))))
   const valueOf = (row: BarRow) => row.text ?? formatValue(row.value)
   const valueWidth = Math.max(...rows.map(row => widthOf(valueOf(row))))
@@ -196,7 +196,7 @@ function legend(look: Look, names: readonly { name: string; color: string; mark:
   const { Text } = look.ui
 
   return (
-    <Text color={look.skin.palette.muted}>
+    <Text color={look.ink.muted}>
       {names.map((entry, i) => (
         <Text>
           {i === 0 ? '' : '   '}
@@ -221,7 +221,7 @@ function xyRows(look: Look, chart: XyChart, maxWidth: number) {
 
   return (
     <Box flexDirection="column">
-      {chart.yLabel === '' ? '' : <Text color={look.skin.palette.muted}>{chart.yLabel}</Text>}
+      {chart.yLabel === '' ? '' : <Text color={look.ink.muted}>{chart.yLabel}</Text>}
       {barRows(look, rows, maxWidth)}
       {many ? legend(look, chart.series.map((series, j) => ({ name: seriesName(chart, j), color: seriesColor(look, j), mark: series.kind === 'line' ? '─●' : '■' }))) : ''}
     </Box>

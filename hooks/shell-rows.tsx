@@ -19,7 +19,7 @@ const FOLDS_PAST = 13
 
 export function shellRows(look: Look, command: string, result: ShellResult, isErrored: boolean, at: { stdout: Fold; stderr: Fold }) {
   const { Box, Button, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const lines = linesOf(result)
   const status = shellStatus(result, isErrored, look.prefs.icons === 'ascii')
   const fold = (stream: ShellLine[], at: Fold): Folded<ShellLine>[] => (at === null ? stream : foldLines(stream, at.head, at.tail))
@@ -42,7 +42,7 @@ export function shellRows(look: Look, command: string, result: ShellResult, isEr
   const isEmpty = lines.stdout.length === 0 && lines.stderr.length === 0
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={palette.muted} paddingX={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={palette.line} paddingX={1}>
       <Box flexDirection="row">
         <Box flexGrow={1} flexShrink={1}>
           <Text wrap="truncate-end">

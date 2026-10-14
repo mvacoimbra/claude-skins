@@ -105,7 +105,7 @@ export function diffRows(
   fenceLang?: string,
 ) {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const lines = diffLines(diff.hunks)
   const shown = lines.slice(0, shownCount(look, foldKey, lines.length, FOLD_CODE))
   const digits = String(Math.max(1, ...lines.map(line => ('kind' in line && line.kind !== 'gap' ? Math.max(line.old ?? 0, line.new ?? 0) : 0)))).length
@@ -113,11 +113,11 @@ export function diffRows(
   const added = lines.filter(line => line.kind === 'add').length
   const removed = lines.filter(line => line.kind === 'del').length
   const syntax = look.prefs.highlight ? diffTokens(shown, diffLanguage(diff, fenceLang)) : undefined
-  const colors = roleColors(palette)
+  const colors = roleColors(look.skin.palette)
 
   return (
     <Box flexDirection="column" marginY={1}>
-      <Box flexDirection="column" borderStyle="round" borderColor={palette.muted} paddingX={1}>
+      <Box flexDirection="column" borderStyle="round" borderColor={palette.line} paddingX={1}>
         {shown.map((line, i) =>
           line.kind === 'gap' ? (
             <Text color={palette.muted}>{`${' '.repeat(digits * 2 + 2)}⋯ line ${line.at}`}</Text>

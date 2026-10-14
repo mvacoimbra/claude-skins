@@ -16,7 +16,7 @@ import { CHART_HINT } from './mermaid'
 import { commandSegments } from './command-output'
 import { askBand, desktopSpinnerRow, diffCard, footerRow, terminalCard, usageBand, groupRow, promptRow, quietResult, replyRows, spinnerRow, toolRow } from './rows'
 import type { Look, SvgElement, Ui } from './rows'
-import { galleryPane } from './gallery'
+import { galleryOff, galleryPane } from './gallery'
 import { keepsOwnRow, SHELLS, shellResultOf } from './shell'
 import { OUTPUT_FOLD, shellRows } from './shell-rows'
 import { CHOICES, skinsPanel } from './panel'
@@ -40,6 +40,7 @@ import { MAX_MARKDOWN, replySegments } from './reply'
 import { isDue, isNewer, LATEST_URL, STAR_NOTICE, starStep, updateNotice, versionOf } from './updates'
 import { hyperlinksFrom, touchOf } from './links'
 import { NATIVE, NATIVE_NAME } from './kit/tone'
+import { inkFrom, toneOfSkin } from './ink'
 import type { KitSkin } from './kit/tone'
 import type { Checked, Star } from './updates'
 
@@ -104,7 +105,8 @@ const WRITES = new Set([...EDITS, 'NotebookEdit'])
 // message is not theirs to dress as theirs.
 const TYPED = new Set(['composer', 'bridge', 'sdk'])
 
-type Active = { prefs: Prefs; skin: Skin; custom: Record<string, CustomSkin> }
+// The skin in use, as drawn now (its light palette on a light appearance), and the appearance.
+type Active = { prefs: Prefs; skin: Skin; custom: Record<string, CustomSkin>; isLight: boolean }
 
 const NO_STATS: TurnStats = { tools: 0, added: 0, removed: 0 }
 
@@ -113,7 +115,13 @@ async function activeSkin($: EngineInterface): Promise<Active | null> {
   const custom = await read($, customAtom)
   const skin = resolveSkin(prefs.skin, custom)
 
-  return skin === undefined ? null : { prefs, skin: forTheme(skin, await read($, lightAtom)), custom }
+  if (skin === undefined) {
+    return null
+  }
+
+  const isLight = await read($, lightAtom)
+
+  return { prefs, skin: forTheme(skin, isLight), custom, isLight }
 }
 
 // Where each system keeps its appearance, and how to read the answer.
@@ -203,16 +211,22 @@ const lookOf = (
   active: Active,
   surface: RenderSurface,
   copy?: (text: string) => void,
-): Look => ({
+): Look => {
+  const t = toneOfSkin(active.skin, active.isLight)
+
+  return {
   ui,
   skin: active.skin,
+  t,
+  ink: inkFrom(t),
   icons: ICONS[active.prefs.icons],
   prefs: active.prefs,
   surface,
   ...(surface !== 'terminal' && ui.Svg !== undefined ? { svg: ui.Svg } : {}),
   // `/skin copy off` takes every copy button away.
   ...(copy === undefined || !active.prefs.copy ? {} : { copy }),
-})
+  }
+}
 
 // What a drawing adds to its look from the session: links where they can be drawn, this
 // turn's files, and the blocks the person unfolded in it. Each is a read on every draw, so
@@ -613,16 +627,19 @@ async function drawMarkdown($: EngineInterface, args: SkinsMarkdownArgs): Promis
 async function panelFor($: EngineInterface, args: SkinsPanelArgs, lang: Lang): Promise<SkinsPanel> {
   const prefs = await read($, prefsAtom)
   const custom = await read($, customAtom)
-  const skin = resolveSkin(prefs.skin, custom) ?? resolveSkin(DEFAULT_PREFS.skin, custom)
+  const isLight = await read($, lightAtom)
+  const found = resolveSkin(prefs.skin, custom) ?? resolveSkin(DEFAULT_PREFS.skin, custom)
 
-  if (skin === undefined || !SURFACES.includes(args.surface)) {
+  if (found === undefined || !SURFACES.includes(args.surface)) {
     throw new Error('skins.panel takes { lang, surface, columns } with a surface skins draws on')
   }
 
-  const look = lookOf($.ui.resolve({ surface: args.surface, component: 'AssistantMessage' }), { prefs, custom, skin }, args.surface)
+  const skin = forTheme(found, isLight)
+  const look = lookOf($.ui.resolve({ surface: args.surface, component: 'AssistantMessage' }), { prefs, custom, skin, isLight }, args.surface)
 
   return skinsPanel(look, {
-    names: skinNames(custom),
+    skins: skinNames(custom).map(name => ({ name, label: resolveSkin(name, custom)?.label ?? name })),
+    editPalette: found.palette,
     editing: await read($, editingAtom),
     columns: Math.max(20, Math.floor(args.columns)),
     pinned: await read($, pinnedAtom),
@@ -635,14 +652,16 @@ async function catalogFor($: EngineInterface, args: SkinsPanelArgs): Promise<Ski
   const active = await activeSkin($)
   const prefs = active?.prefs ?? (await read($, prefsAtom))
   const custom = await read($, customAtom)
-  const skin = active?.skin ?? resolveSkin(DEFAULT_PREFS.skin, custom)
+  const isLight = await read($, lightAtom)
+  const fallback = resolveSkin(DEFAULT_PREFS.skin, custom)
+  const skin = active?.skin ?? (fallback === undefined ? undefined : forTheme(fallback, isLight))
 
   if (skin === undefined || !SURFACES.includes(args.surface)) {
     throw new Error('skins.catalog takes { lang, surface, columns } with a surface skins draws on')
   }
 
   const ui = $.ui.resolve({ surface: args.surface, component: 'AssistantMessage' })
-  const look = lookOf(ui, { prefs: { ...prefs, skin: skin.name }, custom, skin }, args.surface)
+  const look = lookOf(ui, { prefs: { ...prefs, skin: skin.name }, custom, skin, isLight }, args.surface)
 
   return skinsCatalog(look, Math.max(20, Math.floor(args.columns)), args.lang === 'pt' ? 'pt' : 'en').map(entry => ({ ...entry, tree: staticTree(entry.tree) }))
 }
@@ -996,7 +1015,7 @@ export const register: Register = on => {
     const ui = $.ui.resolve(e)
 
     if (active === null) {
-      return <ui.Text>The gallery shows a skin. Pick one in the Skins tab of /mods first.</ui.Text>
+      return galleryOff(ui, e.surface, await read($, lightAtom), panelLang)
     }
 
     const look = lookOf(ui, active, e.surface)

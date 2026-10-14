@@ -1,17 +1,18 @@
+import { ICON_PATHS, iconSvg } from './kit/icons'
 import type { Kind } from './skin'
 
 // Vector icons and spinners for the surfaces that draw `Svg` (the desktop app). Each is a
 // whole SVG document; animation is CSS, which plays in the image the desktop draws.
 
-// Outline paths on a 24-unit grid.
+// The tool kinds' outline paths are the pack kit's (`ICON_PATHS`): one set for every mod.
 const PATHS: Readonly<Record<Kind, string>> = {
-  run: '<path d="M5 7l5 5-5 5"/><path d="M12 18h7"/>',
-  write: '<path d="M4 20h4L18.5 9.5a2.83 2.83 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
-  read: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/>',
-  search: '<circle cx="10" cy="10" r="6.5"/><path d="M20 20l-5.2-5.2"/>',
-  web: '<circle cx="12" cy="12" r="8.5"/><path d="M3.8 9.5h16.4M3.8 14.5h16.4"/><path d="M11.5 3.5a15 15 0 0 0 0 17M12.5 3.5a15 15 0 0 1 0 17"/>',
-  mcp: '<path d="M9.8 6.2l8 8-2 2a5.66 5.66 0 0 1-8-8z"/><path d="M4 20l3.6-3.6M15 4l-3.4 3.4M20 9l-3.4 3.4"/>',
-  other: '<circle cx="12" cy="12" r="3"/>',
+  run: ICON_PATHS.run,
+  write: ICON_PATHS.write,
+  read: ICON_PATHS.read,
+  search: ICON_PATHS.search,
+  web: ICON_PATHS.web,
+  mcp: ICON_PATHS.mcp,
+  other: ICON_PATHS.other,
 }
 
 const SPIN = [
@@ -24,11 +25,11 @@ const svg = (size: number, style: string, body: string): string =>
 
 // A tool's icon; while it runs, an arc circles it.
 export function toolIcon(kind: Kind, color: string, isRunning: boolean): string {
-  const stroke = `<g fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${PATHS[kind]}</g>`
-
   if (!isRunning) {
-    return svg(16, '', stroke)
+    return iconSvg(kind, color, 16)
   }
+
+  const stroke = `<g fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${PATHS[kind]}</g>`
 
   const shrunk = `<g transform="translate(5 5) scale(.58)">${stroke}</g>`
   const arc = `<circle class="spin" cx="12" cy="12" r="10.5" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="18 48"/>`

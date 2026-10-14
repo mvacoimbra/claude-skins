@@ -7,7 +7,7 @@ import { ganttBody, journeyBody, kanbanBody, timelineBody } from './svg-chart-pl
 import { gitBody, mindmapBody, quadrantBody, radarBody, sankeyBody } from './svg-chart-shape'
 import { packetBody, treemapBody } from './svg-chart-data'
 import { architectureBody, blockBody, c4Body, systemAlt } from './svg-chart-system'
-import { CONTROL_SLOT, escape, fitText, HEADER_MID, measure, riseDelay, riseEnd, svgCard } from './svg-kit'
+import { CONTROL_SLOT, escape, fitText, HEADER_MID, headerMeta, headerTitle, measure, riseDelay, riseEnd, rule, svgCard } from './svg-kit'
 
 // A Mermaid fence drawn as a card in the same shell as code and tables: the kind and
 // title in a header, then the drawing in the skin's colours.
@@ -15,18 +15,21 @@ import { CONTROL_SLOT, escape, fitText, HEADER_MID, measure, riseDelay, riseEnd,
 type Built = { source: string; width: number; height: number; alt: string; entranceMs: number }
 
 function header(chart: Chart, palette: Palette, width: number, hasControl: boolean): string {
+  // The chart's own title in the body text with its kind muted after it, or the kind alone
+  // as the title; how many steps, slices or points it holds muted at the right.
   const { kind, count } = chartHeading(chart)
-  const label = kind.toUpperCase()
   const title = chart.title
-  const titleX = 16 + measure(label, false, 11) * 1.15 + 12
   const right = width - 16 - (hasControl ? CONTROL_SLOT : 0)
-  const room = right - titleX - measure(count, false, 11) - 16
+  const kindW = measure(kind, false, 12) + 16
+  const room = right - 16 - measure(count, false, 12) - 16 - (title === '' ? 0 : kindW)
+  const shown = fitText(title === '' ? kind : title, room, false, 13)
+  const titleW = measure(shown, false, 13) * 1.12
 
   return [
-    `<text x="16" y="${HEADER_MID + 4}" font-size="11" style="fill:${palette.muted};letter-spacing:.1em;font-weight:600">${escape(label)}</text>`,
-    title === '' ? '' : `<text x="${titleX}" y="${HEADER_MID + 4}" font-size="13" style="font-weight:600">${escape(fitText(title, room, false, 13))}</text>`,
-    `<text x="${right}" y="${HEADER_MID + 4}" text-anchor="end" font-size="11" style="fill:${palette.muted}">${escape(count)}</text>`,
-    `<line x1="0" y1="${HEADER_H - 0.5}" x2="${width}" y2="${HEADER_H - 0.5}" stroke="${palette.muted}" stroke-opacity=".3"/>`,
+    headerTitle(16, HEADER_MID + 4.5, shown),
+    title === '' ? '' : headerMeta(16 + titleW + 10, HEADER_MID + 4.5, kind, palette),
+    headerMeta(right, HEADER_MID + 4.5, count, palette, { anchor: 'end' }),
+    rule(HEADER_H, width, palette),
   ].join('')
 }
 

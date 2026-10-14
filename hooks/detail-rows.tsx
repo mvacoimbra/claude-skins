@@ -52,7 +52,7 @@ export function disclosedRow(look: Look, row: RenderElement, isOpen: boolean, to
 
 function fieldRows(look: Look, fields: readonly Field[]) {
   const { Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
 
   return fields.map(field => (
     <Text>
@@ -73,7 +73,7 @@ function moreButton(look: Look, total: number, opened: Opened) {
   )
 }
 
-function textLines(look: Look, lines: readonly string[], color: string, opened: Opened) {
+function textLines(look: Look, lines: readonly string[], color: string | undefined, opened: Opened) {
   const { Box, Text } = look.ui
   const shown = opened.isAll ? lines : lines.slice(0, DETAIL_LINES)
 
@@ -91,7 +91,7 @@ function textLines(look: Look, lines: readonly string[], color: string, opened: 
 
 async function bodyRows(look: Look, opened: Opened): Promise<RenderElement | string> {
   const { Box, Code, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const { body } = opened
 
   switch (body.kind) {

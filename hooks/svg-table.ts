@@ -1,7 +1,7 @@
 import type { Align, Table } from './markdown'
 import { wrapLines } from './markdown'
 import type { Palette } from './skin'
-import { CONTROL_SLOT, escape, HEADER_MID, measure as measureAt, MONO, riseDelay, staggerEnd, staggerStep, svgCard } from './svg-kit'
+import { CONTROL_SLOT, escape, hairline, HEADER_MID, measure as measureAt, MONO, riseDelay, staggerEnd, staggerStep, svgCard } from './svg-kit'
 
 // A table as an animated vector card in the skin's colours, with no background of its
 // own so the page shows through, for the surfaces that draw `Svg` (the desktop app).
@@ -65,7 +65,7 @@ function naturalWidths(table: Table): number[] {
   return table.header.map((header, col) => {
     const cells = table.rows.map(row => row[col] ?? '')
     const widest = Math.max(
-      measure(header.toUpperCase(), false) * 0.85,
+      measure(header, false) * 1.06,
       ...cells.map(cell => measure(cell, isMonoKind(kindOfCell(cell))) + (kindOfCell(cell) === 'colour' ? 22 : 0)),
     )
 
@@ -150,7 +150,7 @@ export function tableSvg(table: Table, palette: Palette, width: number, hasContr
 
   const header = table.header
     .map((cell, i) => {
-      const [text = ''] = wrapCell(cell.toUpperCase(), widths[i] ?? MIN_COL, false, 1)
+      const [text = ''] = wrapCell(cell, widths[i] ?? MIN_COL, false, 1)
 
       return `<text x="${xOf(lefts[i] ?? 0, widths[i] ?? 0, align(i))}" y="${HEADER_MID + 4}" text-anchor="${anchorOf(align(i))}" class="head">${escape(text)}</text>`
     })
@@ -169,7 +169,7 @@ export function tableSvg(table: Table, palette: Palette, width: number, hasContr
 
   const style = [
     `text{font-size:${SIZE}px}`,
-    `.head{font-size:12px;font-weight:600;letter-spacing:.1em;fill:${palette.muted}}`,
+    `.head{font-size:${SIZE}px;font-weight:600;fill:${palette.fg}}`,
     `.num{font-variant-numeric:tabular-nums}`,
     `.row{opacity:0;animation:rise ${ROW_RISE_MS}ms cubic-bezier(.2,.8,.2,1) forwards}`,
     `.rule{stroke-dasharray:${cardWidth};stroke-dashoffset:${cardWidth};animation:draw ${RULE_MS}ms cubic-bezier(.6,0,.2,1) ${RULE_DELAY_MS}ms forwards}`,
@@ -180,7 +180,7 @@ export function tableSvg(table: Table, palette: Palette, width: number, hasContr
 
   const body = [
     header,
-    `<line class="rule" x1="${PAD_X}" y1="${HEADER_H - 1}" x2="${cardWidth - PAD_X - reserve}" y2="${HEADER_H - 1}" stroke="${palette.user}" stroke-width="1" stroke-linecap="square"/>`,
+    `<line class="rule" x1="0" y1="${HEADER_H - 0.5}" x2="${cardWidth}" y2="${HEADER_H - 0.5}" stroke="${hairline(palette)}" stroke-width="1" stroke-linecap="square"/>`,
     rows,
   ].join('')
 

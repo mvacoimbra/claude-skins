@@ -26,7 +26,7 @@ import { cardWidth, settled } from './svg-kit'
 import { tableSvg } from './svg-table'
 import { terminalSvg } from './svg-terminal'
 import type { ShellOutput } from './svg-terminal'
-import { metersKey, usageLine, usageSvg } from './svg-usage'
+import { meterSlot, metersKey, usageLine, usageSvg } from './svg-usage'
 import { codeRows } from './code-rows'
 import { languageOf } from './highlight'
 import type { Meter } from './svg-usage'
@@ -34,6 +34,10 @@ import { kindOf, toolLabel } from './tools'
 import { inlineMath, mathArt, parseTex } from './math'
 import { mathSvg } from './svg-math'
 import type { CacheLine } from './cache'
+import { kitFor } from './ink'
+import type { Ink } from './ink'
+import { icon as kitIcon, status as kitStatus } from './kit/kit'
+import type { Tone } from './kit/tone'
 
 export type Ui = Pick<ElementTable, 'Box' | 'Text' | 'Markdown' | 'Button' | 'Code' | 'Link'>
 
@@ -43,6 +47,10 @@ export type SvgElement = ElementTable<'desktop'>['Svg']
 export type Look = {
   ui: Ui
   skin: Skin
+  // The skin as the pack's kit reads it, and its palette as element colours: every row
+  // drawn in text takes its colours from `ink`, every vector card from `skin.palette`.
+  t: Tone
+  ink: Ink
   icons: Icons
   prefs: Prefs
   surface: RenderSurface
@@ -84,28 +92,29 @@ const KIND_LABEL: Readonly<Record<Kind, string>> = {
 
 const CELL_PAD = 1
 
-// The worst thing that happened to any of the calls, else how far along they are.
-function status({ skin, icons }: Look, calls: readonly Call[]) {
+// The worst thing that happened to any of the calls, else how far along they are: the glyph,
+// its element colour, and the same colour as hex for an icon.
+function status({ skin, ink, icons }: Look, calls: readonly Call[]) {
   if (calls.some(call => call.isInterrupted)) {
-    return { glyph: icons.interrupted, color: skin.palette.warn }
+    return { glyph: icons.interrupted, color: ink.warn, hex: skin.palette.warn }
   }
 
   if (calls.some(call => call.isErrored)) {
-    return { glyph: icons.err, color: skin.palette.err }
+    return { glyph: icons.err, color: ink.err, hex: skin.palette.err }
   }
 
   if (calls.some(call => call.isRunning)) {
-    return { glyph: icons.running, color: skin.palette.muted }
+    return { glyph: icons.running, color: ink.muted, hex: skin.palette.muted }
   }
 
-  return { glyph: icons.ok, color: skin.palette.ok }
+  return { glyph: icons.ok, color: ink.ok, hex: skin.palette.ok }
 }
 
 // The connector above a node, which ties a turn's calls into one line down the left.
 function railLine(look: Look) {
   const { Text } = look.ui
 
-  return <Text color={look.skin.palette.user}>{look.icons.rail}</Text>
+  return <Text color={look.ink.user}>{look.icons.rail}</Text>
 }
 
 function node(look: Look, calls: readonly Call[]) {
@@ -116,14 +125,14 @@ function node(look: Look, calls: readonly Call[]) {
   return (
     <Text color={color}>
       {`${glyph}`}
-      <Text color={look.skin.palette.muted}>{`${branch} `}</Text>
+      <Text color={look.ink.muted}>{`${branch} `}</Text>
     </Text>
   )
 }
 
 function metaSpans(look: Look, meta: Meta) {
   const { Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const spans = []
 
   if (meta.added !== undefined && meta.removed !== undefined && meta.added + meta.removed > 0) {
@@ -187,9 +196,9 @@ function stack(look: Look, line: ReturnType<Ui['Text']>) {
 // On a surface with vector icons, the icon leads the row in place of the status glyph.
 function iconRow(look: Look, Svg: SvgElement, kind: Kind, calls: readonly Call[], line: ReturnType<Ui['Text']>) {
   const { Box } = look.ui
-  const { color } = status(look, calls)
+  const { hex } = status(look, calls)
   // Calm keeps a running icon still.
-  const source = toolIcon(kind, color, look.prefs.calm === null && calls.some(call => call.isRunning))
+  const source = toolIcon(kind, hex, look.prefs.calm === null && calls.some(call => call.isRunning))
 
   return (
     <Box flexDirection="row" columnGap={1} alignItems="center">
@@ -202,7 +211,7 @@ function iconRow(look: Look, Svg: SvgElement, kind: Kind, calls: readonly Call[]
 // `touch` colours the target of a file this turn created (ok) or edited (warn).
 export function toolRow(look: Look, call: Call, kind: Kind, target: string, meta: Meta, label = toolLabel(call.tool), touch?: Touch) {
   const { Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const targetColor = call.isErrored ? palette.err : touch === 'created' ? palette.ok : touch === 'edited' ? palette.warn : palette.muted
 
   if (look.svg !== undefined) {
@@ -233,17 +242,27 @@ export function toolRow(look: Look, call: Call, kind: Kind, target: string, meta
 export function quietResult(look: Look, failure: string | null) {
   const { Box, Text } = look.ui
 
-  return failure === null ? (
-    <Box />
+  if (failure === null) {
+    return <Box />
+  }
+
+  // The desktop leads with the kit's alert icon; the terminal with a glyph.
+  return look.svg === undefined ? (
+    <Text color={look.ink.err} wrap="truncate-end">{`${look.prefs.icons === 'ascii' ? 'x' : '✖'} ${failure}`}</Text>
   ) : (
-    <Text color={look.skin.palette.err} wrap="truncate-end">{`${look.prefs.icons === 'ascii' ? 'x' : '✖'} ${failure}`}</Text>
+    <Box flexDirection="row" columnGap={1} alignItems="center">
+      {kitIcon(kitFor(look), 'alert', 'err')}
+      <Text color={look.ink.err} wrap="truncate-end">
+        {failure}
+      </Text>
+    </Box>
   )
 }
 
 // A run of reads and searches on one node: `●─ Read 3 · Search 2`.
 export function groupRow(look: Look, calls: readonly Call[]) {
   const { Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const counts = new Map<Kind, number>()
 
   for (const call of calls) {
@@ -280,7 +299,7 @@ export function desktopSpinnerRow(look: Look, Svg: SvgElement, mode: SpinnerMode
   return (
     <Box flexDirection="row" columnGap={1} alignItems="center">
       <Svg source={spinnerIcon(mode, look.skin.palette.user)} alt={mode} width={20} height={20} />
-      <Text color={look.skin.palette.muted}>{text}</Text>
+      <Text color={look.ink.muted}>{text}</Text>
     </Box>
   )
 }
@@ -308,10 +327,10 @@ export function promptRow(look: Look, text: string, images?: ReturnType<Ui['Text
 
   return (
     <Box flexDirection="column" alignItems={look.prefs.prompt === 'right' ? 'flex-end' : 'flex-start'} marginY={1}>
-      <Box {...(plain ? {} : { borderStyle: 'round' as const, borderColor: look.skin.palette.muted, paddingX: 1 })} flexShrink={1}>
-        {plain ? <Text color={look.skin.palette.user}>{`${look.icons.prompt} `}</Text> : ''}
+      <Box {...(plain ? {} : { borderStyle: 'round' as const, borderColor: look.ink.line, paddingX: 1 })} flexShrink={1}>
+        {plain ? <Text color={look.ink.user}>{`${look.icons.prompt} `}</Text> : ''}
         {markdown === null || markdown.length > MAX_MARKDOWN ? (
-          <Text color={look.skin.palette.fg}>{text}</Text>
+          <Text color={look.ink.fg}>{text}</Text>
         ) : (
           <Markdown text={markdown} />
         )}
@@ -339,7 +358,7 @@ const MAX_CELL_LINES = 6
 export function tableRows(look: Look, table: Table, maxWidth: number, control?: ReturnType<Ui['Button']>, foldKey = 'fold-table') {
   const { Box, Text } = look.ui
   const rows = table.rows.slice(0, shownCount(look, foldKey, table.rows.length, FOLD_ROWS))
-  const { palette } = look.skin
+  const palette = look.ink
   const widths = columnWidths(table, maxWidth - 4, CELL_PAD * 2)
   const natural = widths.reduce((sum, width) => sum + width + CELL_PAD * 2, 2)
   const isFluid = natural > maxWidth * NATURAL_SHARE
@@ -369,7 +388,7 @@ export function tableRows(look: Look, table: Table, maxWidth: number, control?: 
       flexDirection="column"
       marginY={fold === '' ? 1 : 0}
       borderStyle="round"
-      borderColor={palette.muted}
+      borderColor={palette.line}
       {...(isFluid ? { width: '100%' } : { alignSelf: 'flex-start' as const })}
     >
       {row(table.header, true, palette.surface)}
@@ -455,13 +474,11 @@ function mathCard(look: Look, tex: string, Svg: SvgElement, columns: number, key
 // A formula in cells: stacked fractions, radicals and tall brackets, one Text per row.
 function mathRows(look: Look, tex: string, maxWidth: number, key: string) {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
 
   return (
     <Box flexDirection="column" marginY={1}>
-      <Text color={palette.muted} bold>
-        MATH
-      </Text>
+      <Text color={palette.muted}>Math</Text>
       <Box flexDirection="column" marginTop={1} paddingLeft={2}>
         {mathArt(parseTex(tex), Math.max(10, maxWidth - 2)).map(row => (
           <Text color={palette.fg}>{row === '' ? ' ' : row}</Text>
@@ -754,21 +771,21 @@ export function replyRows(look: Look, segments: readonly Segment[], maxWidth: nu
 // The word with a band of light sweeping through it, one letter a frame.
 export function spinnerRow(look: Look, word: string, frame: number, elapsedMs: number) {
   const { Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const letters = [...word]
   const head = (frame % (letters.length + 8)) - 4
-  const shade = (i: number): string => {
+  const shade = (i: number): string | undefined => {
     const distance = Math.abs(i - head)
 
     return distance === 0 ? palette.fg : distance === 1 ? palette.user : palette.muted
   }
-  const runs: { color: string; text: string }[] = []
+  const runs: { color: string | undefined; text: string }[] = []
 
   for (const [i, letter] of letters.entries()) {
     const color = shade(i)
     const last = runs.at(-1)
 
-    if (last?.color === color) {
+    if (last !== undefined && last.color === color) {
       last.text += letter
     } else {
       runs.push({ color, text: letter })
@@ -788,15 +805,14 @@ export function spinnerRow(look: Look, word: string, frame: number, elapsedMs: n
 
 export function footerRow(look: Look, word: string, durationMs: number, stats: TurnStats | undefined) {
   const { Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const facts = [
     ...(stats === undefined || stats.tools === 0 ? [] : [`${stats.tools} tool${stats.tools === 1 ? '' : 's'}`]),
   ]
   const hasDiff = stats !== undefined && stats.added + stats.removed > 0
-
-  return (
+  const line = (
     <Text color={palette.muted}>
-      <Text color={palette.user}>{`${look.icons.done} `}</Text>
+      {look.svg === undefined ? <Text color={palette.user}>{`${look.icons.done} `}</Text> : ''}
       {`${word} in ${formatDuration(durationMs)}`}
       {facts.length > 0 ? `  ·  ${facts.join('  ·  ')}` : ''}
       {hasDiff ? '  ·  ' : ''}
@@ -804,16 +820,26 @@ export function footerRow(look: Look, word: string, durationMs: number, stats: T
       {hasDiff ? <Text color={palette.err}>{` −${stats.removed}`}</Text> : ''}
     </Text>
   )
+
+  // The desktop leads with the kit's check, in the accent; the terminal with the skin's glyph.
+  return look.svg === undefined ? (
+    line
+  ) : (
+    <look.ui.Box flexDirection="row" columnGap={1} alignItems="center">
+      {kitIcon(kitFor(look), 'check', 'accent', 14)}
+      {line}
+    </look.ui.Box>
+  )
 }
 
 // A band above Claude Code's own question dialog: the topics it asks about, in the skin.
 export function askBand(look: Look, headers: readonly string[]) {
   const { Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
 
   return (
     <Text color={palette.muted}>
-      <Text color={palette.user}>{`${look.icons.prompt} `}</Text>
+      {look.svg === undefined ? <Text color={palette.user}>{`${look.icons.prompt} `}</Text> : ''}
       {headers.map((header, i) => (
         <Text color={i === 0 ? palette.fg : palette.muted} bold={i === 0}>
           {`${i === 0 ? '' : '  ·  '}${header}`}
@@ -877,11 +903,11 @@ export const COMPACT_HOTKEY = '0'
 
 function meterView(look: Look, meters: readonly Meter[]) {
   const { Box, Text } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
 
   if (look.svg !== undefined) {
     const Svg = look.svg
-    const built = usageSvg(meters, palette)
+    const built = usageSvg(meters, look.skin.palette)
 
     return <Svg source={sourceOf(look, `usage:${metersKey(meters)}`, built)} alt={built.alt} width={built.width} height={built.height} />
   }
@@ -890,7 +916,7 @@ function meterView(look: Look, meters: readonly Meter[]) {
     <Box flexDirection="row" columnGap={3}>
       {usageLine(meters).map(meter => (
         <Text color={palette.muted}>
-          <Text color={palette.user}>{meter.bar}</Text>
+          <Text color={palette[meterSlot(meter.percent)]}>{meter.bar}</Text>
           {` ${meter.text}`}
         </Text>
       ))}
@@ -903,7 +929,7 @@ function meterView(look: Look, meters: readonly Meter[]) {
 // The meters, then cache-tax's countdown until the prompt cache goes cold when it is installed.
 export function usageBand(look: Look, meters: readonly Meter[], canCompact: boolean, compact: () => void, cache: CacheLine | null = null) {
   const { Box, Text, Button } = look.ui
-  const { palette } = look.skin
+  const palette = look.ink
   const context = meters.find(meter => meter.label === 'context')?.percent ?? 0
   const isNudge = context >= COMPACT_NUDGE
 
@@ -911,7 +937,7 @@ export function usageBand(look: Look, meters: readonly Meter[], canCompact: bool
     // The right edge stays clear: the band draws its own collapse mark ([-]) there.
     <Box flexDirection="row" alignItems="center" columnGap={2} paddingRight={5}>
       {meters.length > 0 ? meterView(look, meters) : ''}
-      {cache === null ? '' : <Text color={palette[cache.tone]}>{cache.text}</Text>}
+      {cache === null ? '' : kitStatus(kitFor(look), cache.text, cache.tone)}
       <Box flexGrow={1} />
       {canCompact && isNudge ? <Text color={palette.warn}>{`Context is ${context}% full`}</Text> : ''}
       {canCompact ? (

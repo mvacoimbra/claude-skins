@@ -3,12 +3,20 @@ import type { Palette } from './skin'
 import { escape, FONT, measure } from './svg-kit'
 
 // The band above the prompt: how full the context window is and how much of each plan
-// limit is spent, as rings that fill in when they draw.
+// limit is spent, as rings that fill in when they draw. Each ring is the pack kit's `meter`:
+// the same 7px ring on an 18px square, the same 2.5 stroke on a faint muted track, the accent
+// until 80 %, then warn, then err from 95 %; the percent in the body text, bold, its label and
+// countdown muted beside it.
 
-const RING_R = 9
+const RING_R = 7
+const RING_BOX = RING_R * 2 + 4
+const RING_STROKE = 2.5
 const FILL_MS = 900
-const ITEM_W = 132
-const TEXT_SIZE = 12.5
+const ITEM_W = 120
+const TEXT_SIZE = 13
+// The kit's `columnGap={1}` between a ring and its words, and between meters.
+const GAP = 8
+const ITEM_GAP = 20
 const MINUTE_MS = 60_000
 
 // `resets`, where shown, is the time left until the limit resets, as `countdownOf` writes it.
@@ -97,27 +105,32 @@ export function metersOf(usage: UsageSnap, countdowns: Record<string, string> = 
 }
 
 // Accent while there is room; the warning colour from 80 %, the error colour from 95 %.
-export const meterColor = (percent: number, palette: Palette): string =>
-  percent >= 95 ? palette.err : percent >= 80 ? palette.warn : palette.user
+export const meterSlot = (percent: number): 'err' | 'warn' | 'user' => (percent >= 95 ? 'err' : percent >= 80 ? 'warn' : 'user')
+
+export const meterColor = (percent: number, palette: Palette): string => palette[meterSlot(percent)]
 
 export function usageSvg(meters: readonly Meter[], palette: Palette): { source: string; width: number; height: number; alt: string; entranceMs: number } {
   // A meter with a countdown is wider than the rest; each starts where the one before ended.
-  const widths = meters.map(meter => Math.max(ITEM_W, Math.ceil(RING_R * 2 + 12 + measure(meterText(meter), false, TEXT_SIZE) + 20)))
+  // The words measured with room to spare: the percent is bold, and the desktop's sans runs
+  // wider than the estimate.
+  const wordsW = (meter: Meter) => measure(`${meter.percent}%`, false, TEXT_SIZE) * 1.2 + measure(meterText(meter).slice(`${meter.percent}%`.length), false, TEXT_SIZE) * 1.2
+  const widths = meters.map((meter, i) => Math.max(ITEM_W, Math.ceil(RING_BOX + GAP + wordsW(meter) + (i === meters.length - 1 ? 4 : ITEM_GAP))))
   const starts = widths.map((_, i) => widths.slice(0, i).reduce((sum, w) => sum + w, 0))
   const width = widths.reduce((sum, w) => sum + w, 0)
-  const height = 30
+  const height = 24
+  const mid = height / 2
   const circumference = 2 * Math.PI * RING_R
 
   const items = meters
     .map((meter, i) => {
-      const x = (starts[i] ?? 0) + RING_R + 4
+      const x = (starts[i] ?? 0) + RING_BOX / 2
       const filled = (circumference * meter.percent) / 100
       const color = meterColor(meter.percent, palette)
 
       return [
-        `<circle cx="${x}" cy="15" r="${RING_R}" fill="none" stroke="${palette.muted}" stroke-opacity=".25" stroke-width="3"/>`,
-        `<circle class="fill" cx="${x}" cy="15" r="${RING_R}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-dasharray="${filled} ${circumference}" transform="rotate(-90 ${x} 15)" style="--len:${filled}"/>`,
-        `<text x="${x + RING_R + 8}" y="19.5" font-size="${TEXT_SIZE}"><tspan style="fill:${palette.fg};font-weight:600">${meter.percent}%</tspan><tspan style="fill:${palette.muted}"> ${escape(meter.label)}${meter.resets === undefined ? '' : ` · ${escape(meter.resets)}`}</tspan></text>`,
+        `<circle cx="${x}" cy="${mid}" r="${RING_R}" fill="none" stroke="${palette.muted}" stroke-opacity=".25" stroke-width="${RING_STROKE}"/>`,
+        `<circle class="fill" cx="${x}" cy="${mid}" r="${RING_R}" fill="none" stroke="${color}" stroke-width="${RING_STROKE}" stroke-linecap="round" stroke-dasharray="${filled} ${circumference}" transform="rotate(-90 ${x} ${mid})" style="--len:${filled}"/>`,
+        `<text x="${x + RING_BOX / 2 + GAP}" y="${mid + 4.5}" font-size="${TEXT_SIZE}"><tspan style="fill:${palette.fg};font-weight:600">${meter.percent}%</tspan><tspan style="fill:${palette.muted}"> ${escape(meter.label)}${meter.resets === undefined ? '' : ` · ${escape(meter.resets)}`}</tspan></text>`,
       ].join('')
     })
     .join('')

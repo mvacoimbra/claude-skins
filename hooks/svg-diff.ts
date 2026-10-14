@@ -1,5 +1,5 @@
 import type { Palette } from './skin'
-import { escape, fitText, MONO, pill, riseDelay, staggerEnd, staggerStep, strokeIcon, svgCard } from './svg-kit'
+import { escape, fitText, headerIcon, MONO, pill, pillWidth, riseDelay, rule, staggerEnd, staggerStep, svgCard } from './svg-kit'
 
 // An edit as a card: the file, how many lines it added and removed, and the changed
 // lines with their numbers, green and red, rising in one after another.
@@ -9,8 +9,6 @@ const LINE_H = 22
 const GAP_H = 20
 const CODE = 12.5
 const MAX_LINES = 30
-const PENCIL = '<path d="M4 20h4L18.5 9.5a2.83 2.83 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>'
-const NEW_FILE = '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6M9 14h6"/>'
 
 export type Hunk = { oldStart: number; newStart: number; lines: readonly string[] }
 
@@ -91,7 +89,7 @@ export function diffSvg(input: DiffInput, shownPath: string, palette: Palette, w
 
     const tint = line.kind === 'add' ? palette.ok : line.kind === 'del' ? palette.err : undefined
     const sign = line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ''
-    const band = tint === undefined ? '' : `<rect y="${top}" width="${width}" height="${LINE_H}" fill="${tint}" fill-opacity=".1"/><rect y="${top}" width="2" height="${LINE_H}" fill="${tint}"/>`
+    const band = tint === undefined ? '' : `<rect y="${top}" width="${width}" height="${LINE_H}" fill="${tint}" fill-opacity=".1"/>`
     const number = (value: number | undefined, x: number) =>
       value === undefined ? '' : `<text x="${x}" y="${top + 15}" text-anchor="end" font-family="${MONO}" font-size="11" style="fill:${palette.muted}">${value}</text>`
 
@@ -100,14 +98,17 @@ export function diffSvg(input: DiffInput, shownPath: string, palette: Palette, w
 
   const footer = hidden > 0 ? `<text x="${codeX}" y="${y + 18}" font-size="11.5" style="fill:${palette.muted}">${hidden} more line${hidden === 1 ? '' : 's'}</text>` : ''
   const height = y + (hidden > 0 ? 30 : 8)
-  const tag = input.isNewFile ? pill(width - 16, 12, 'new file', palette.user, palette) : ''
-  const counts = `<text x="${width - (input.isNewFile ? 100 : 16)}" y="27" text-anchor="end" font-family="${MONO}" font-size="12.5"><tspan style="fill:${palette.ok}">+${added}</tspan><tspan style="fill:${palette.muted}">  </tspan><tspan style="fill:${palette.err}">−${removed}</tspan></text>`
+  // The header: the kit's file icon, the path in mono, then +added −removed and, for a file
+  // the edit made, the `new file` pill at the right.
+  const tag = input.isNewFile ? pill(width - 16, 12, 'new file', palette.ok) : ''
+  const countsRight = width - 16 - (input.isNewFile ? pillWidth('new file') + 10 : 0)
+  const counts = `<text x="${countsRight}" y="26.5" text-anchor="end" font-family="${MONO}" font-size="12"><tspan style="fill:${palette.ok}">+${added}</tspan><tspan style="fill:${palette.muted}">  </tspan><tspan style="fill:${palette.err}">−${removed}</tspan></text>`
   const header = [
-    strokeIcon(input.isNewFile ? NEW_FILE : PENCIL, 16, 13, 18, palette.fg),
-    `<text x="44" y="27" font-family="${MONO}" font-size="13" style="fill:${palette.fg}">${escape(fitText(shownPath, width - 220, true, 13))}</text>`,
+    headerIcon(input.isNewFile ? 'file' : 'write', 16, 14, palette),
+    `<text x="42" y="26.5" font-family="${MONO}" font-size="12.5" style="fill:${palette.fg};font-weight:600">${escape(fitText(shownPath, width - 230, true, 12.5))}</text>`,
     counts,
     tag,
-    `<line x1="0" y1="${HEADER_H - 0.5}" x2="${width}" y2="${HEADER_H - 0.5}" stroke="${palette.muted}" stroke-opacity=".3"/>`,
+    rule(HEADER_H, width, palette),
   ].join('')
 
   return {

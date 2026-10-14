@@ -1,5 +1,21 @@
 import type { Palette } from './skin'
-import { CONTROL_SLOT, escape, HEADER_MID, fitText, MONO, riseDelay, staggerEnd, staggerStep, svgCard, tint } from './svg-kit'
+import { CONTROL_SLOT, escape, HEADER_MID, fitText, headerMeta, headerTitle, MONO, riseDelay, rule, staggerEnd, staggerStep, svgCard, tint } from './svg-kit'
+
+// A fence's language as a person names it, for the card's header; a tag not here shows as
+// written.
+const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
+  js: 'JavaScript', javascript: 'JavaScript', jsx: 'JSX', mjs: 'JavaScript', cjs: 'JavaScript',
+  ts: 'TypeScript', typescript: 'TypeScript', tsx: 'TSX', mts: 'TypeScript', cts: 'TypeScript',
+  py: 'Python', python: 'Python', python3: 'Python', rs: 'Rust', rust: 'Rust', go: 'Go', golang: 'Go',
+  c: 'C', h: 'C', cpp: 'C++', 'c++': 'C++', cc: 'C++', cxx: 'C++', hpp: 'C++', cs: 'C#', csharp: 'C#',
+  fs: 'F#', fsharp: 'F#', java: 'Java', kotlin: 'Kotlin', kt: 'Kotlin', swift: 'Swift', rb: 'Ruby', ruby: 'Ruby', php: 'PHP',
+  sh: 'Shell', bash: 'Bash', zsh: 'Zsh', shell: 'Shell', console: 'Console', fish: 'Fish', ps1: 'PowerShell', powershell: 'PowerShell', pwsh: 'PowerShell',
+  sql: 'SQL', lua: 'Lua', json: 'JSON', jsonc: 'JSON', json5: 'JSON5', yaml: 'YAML', yml: 'YAML', toml: 'TOML', ini: 'INI',
+  html: 'HTML', xml: 'XML', svg: 'SVG', vue: 'Vue', css: 'CSS', scss: 'SCSS', less: 'Less', diff: 'Diff', patch: 'Patch',
+  md: 'Markdown', markdown: 'Markdown', mermaid: 'Mermaid',
+}
+
+export const languageName = (lang: string): string => LANGUAGE_NAMES[lang.trim().toLowerCase()] ?? (lang.trim() || 'Code')
 
 // A fenced code block as a card: the language and line count in a header, line numbers
 // in a gutter, and light highlighting of comments, strings, numbers and keywords.
@@ -98,9 +114,9 @@ export function codeSvg(code: string, lang: string, palette: Palette, width: num
   const footer = hidden > 0 ? `<text x="${gutter}" y="${HEADER_H + 8 + lines.length * LINE_H + 14}" font-size="11.5" style="fill:${palette.muted}">${hidden} more lines</text>` : ''
   const height = HEADER_H + 8 + lines.length * LINE_H + (hidden > 0 ? 28 : 10)
   const header = [
-    `<text x="16" y="${HEADER_MID + 4}" font-size="11" style="fill:${palette.muted};letter-spacing:.1em;font-weight:600">${escape((lang || 'code').toUpperCase())}</text>`,
-    `<text x="${width - 16 - (hasControl ? CONTROL_SLOT : 0)}" y="${HEADER_MID + 4}" text-anchor="end" font-size="11" style="fill:${palette.muted}">${all.length} line${all.length === 1 ? '' : 's'}</text>`,
-    `<line x1="0" y1="${HEADER_H - 0.5}" x2="${width}" y2="${HEADER_H - 0.5}" stroke="${palette.muted}" stroke-opacity=".3"/>`,
+    headerTitle(16, HEADER_MID + 4.5, languageName(lang)),
+    headerMeta(width - 16 - (hasControl ? CONTROL_SLOT : 0), HEADER_MID + 4.5, `${all.length} line${all.length === 1 ? '' : 's'}`, palette, { anchor: 'end' }),
+    rule(HEADER_H, width, palette),
     `<g transform="translate(0 ${HEADER_H})">${tint(palette, 0, gutter - 4, height - HEADER_H, 0.04)}</g>`,
   ].join('')
 

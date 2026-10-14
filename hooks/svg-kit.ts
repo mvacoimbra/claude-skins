@@ -1,8 +1,14 @@
+import { iconAt } from './kit/icons'
+import type { IconName } from './kit/icons'
+import { mix } from './kit/tone'
 import type { Palette } from './skin'
 
 // What every vector card shares: fonts, text measuring and fitting, escaping, and the
-// card shell. Cards have no background of their own: the desktop draws an Svg as an
-// image, so the page shows through, and bands are faint tints of the text colour.
+// card shell, in the pack kit's grammar. Cards have no background of their own: the desktop
+// draws an Svg as an image, so the page shows through, and bands are faint tints of the text
+// colour. The outline is the kit's hairline at the radius of its groups; headers are the
+// system sans, the title in the body text and the rest muted; mono is for code, paths and
+// numbers only; icons are the kit's.
 
 export const FONT = `ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, sans-serif`
 export const MONO = `ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace`
@@ -94,7 +100,35 @@ export const staggerEnd = (count: number, stepMs: number, startMs = 80, duration
 export const riseEnd = (source: string): number =>
   Math.max(RISE_MS, ...[...source.matchAll(/animation-delay:(\d+)ms/g)].map(([, delay = '0']) => Number(delay) + RISE_MS))
 
-const RADIUS = 12
+// The kit's group outline: Claude Code's rounded border.
+const RADIUS = 8
+
+const luminance = (hex: string): number => {
+  const h = /^#[0-9a-f]{6}$/i.test(hex) ? hex : '#808080'
+
+  return parseInt(h.slice(1, 3), 16) * 0.2126 + parseInt(h.slice(3, 5), 16) * 0.7152 + parseInt(h.slice(5, 7), 16) * 0.0722
+}
+
+// Whether a palette is for a light background: its surface brighter than its text.
+export const isLightPalette = (palette: Palette): boolean => luminance(palette.surface) > luminance(palette.fg)
+
+// The kit's hairline (`Tone.hex.line`): the surface a step towards the text.
+export const hairline = (palette: Palette): string => mix(palette.surface, palette.fg, isLightPalette(palette) ? 0.14 : 0.16)
+
+// The hairline under a card's header, or between its parts.
+export const rule = (y: number, width: number, palette: Palette, x = 0): string =>
+  `<line x1="${x}" y1="${y - 0.5}" x2="${width}" y2="${y - 0.5}" stroke="${hairline(palette)}"/>`
+
+// A header's title: the body text in the system sans, a step bolder.
+export const headerTitle = (x: number, y: number, text: string, opts: { mono?: boolean; anchor?: 'start' | 'end' } = {}): string =>
+  `<text x="${x}" y="${y}"${opts.anchor === 'end' ? ' text-anchor="end"' : ''}${opts.mono ? ` font-family="${MONO}" font-size="12.5"` : ' font-size="13"'} style="font-weight:600">${escape(text)}</text>`
+
+// A header's detail or note: muted, the system sans unless it is a number or a path.
+export const headerMeta = (x: number, y: number, text: string, palette: Palette, opts: { mono?: boolean; anchor?: 'start' | 'end' } = {}): string =>
+  `<text x="${x}" y="${y}"${opts.anchor === 'end' ? ' text-anchor="end"' : ''}${opts.mono ? ` font-family="${MONO}" font-size="11.5"` : ' font-size="12"'} style="fill:${palette.muted}">${escape(text)}</text>`
+
+// One of the kit's icons in a card header, muted as the kit draws icons.
+export const headerIcon = (name: IconName, x: number, y: number, palette: Palette, size = 16): string => iconAt(name, x, y, size, palette.muted)
 
 // The room a card leaves in its top-right corner for a Copy button laid over it.
 export const CONTROL_SLOT = 84
@@ -115,7 +149,7 @@ export function svgCard(width: number, height: number, palette: Palette, style: 
     // monospace attribute on code, paths and output.
     `<style>text{fill:${palette.fg}}text:not([font-family]){font-family:${FONT}}${MOTION}${style}</style>`,
     `<g class="card"><g clip-path="url(#${clip})">${body}</g>`,
-    `<rect x=".5" y=".5" width="${width - 1}" height="${height - 1}" rx="${RADIUS - 0.5}" fill="none" stroke="${palette.fg}" stroke-opacity=".16"/></g>`,
+    `<rect x=".5" y=".5" width="${width - 1}" height="${height - 1}" rx="${RADIUS - 0.5}" fill="none" stroke="${hairline(palette)}"/></g>`,
     `</svg>`,
   ].join('')
 }
@@ -124,13 +158,23 @@ export function svgCard(width: number, height: number, palette: Palette, style: 
 export const tint = (palette: Palette, y: number, width: number, height: number, opacity = 0.05): string =>
   `<rect y="${y}" width="${width}" height="${height}" fill="${palette.fg}" fill-opacity="${opacity}"/>`
 
-// A small rounded label, such as `exit 0` or `new file`, right-aligned at `right`.
-export function pill(right: number, y: number, text: string, color: string, palette: Palette): string {
-  const width = Math.ceil(measure(text, true, 11) + 16)
+// A small rounded label in a state's colour, such as `ok`, `failed` or `new file`,
+// right-aligned at `right`: the one pill every card uses. A word is the system sans; a
+// number or a code (`exit 2`) is mono.
+export const PILL_H = 20
+
+export function pill(right: number, y: number, text: string, color: string, opts: { mono?: boolean } = {}): string {
+  const size = opts.mono ? 11 : 11.5
+  const width = Math.ceil(measure(text, opts.mono === true, size) + 16)
   const left = right - width
 
-  return `<rect x="${left}" y="${y}" width="${width}" height="20" rx="10" fill="${color}" fill-opacity=".14"/><text x="${left + width / 2}" y="${y + 14}" text-anchor="middle" font-family="${MONO}" font-size="11" style="fill:${color}">${escape(text)}</text>`
+  return `<rect x="${left}" y="${y}" width="${width}" height="${PILL_H}" rx="${PILL_H / 2}" fill="${color}" fill-opacity=".14"/><text x="${left + width / 2}" y="${y + 14}" text-anchor="middle"${opts.mono ? ` font-family="${MONO}"` : ''} font-size="${size}" style="fill:${color};font-weight:500">${escape(text)}</text>`
 }
 
+// The width a pill takes, for laying out what sits beside it.
+export const pillWidth = (text: string, opts: { mono?: boolean } = {}): number => Math.ceil(measure(text, opts.mono === true, opts.mono ? 11 : 11.5) + 16)
+
+// A drawing's own pictogram that the kit's set has no name for (an architecture diagram's
+// database, server, disk), drawn in the kit's stroke: 1.8, round caps and joins.
 export const strokeIcon = (path: string, x: number, y: number, size: number, color: string): string =>
   `<g transform="translate(${x} ${y}) scale(${size / 24})" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</g>`
