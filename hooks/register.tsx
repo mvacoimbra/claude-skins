@@ -663,7 +663,7 @@ async function catalogFor($: EngineInterface, args: SkinsPanelArgs): Promise<Ski
   const ui = $.ui.resolve({ surface: args.surface, component: 'AssistantMessage' })
   const look = lookOf(ui, { prefs: { ...prefs, skin: skin.name }, custom, skin, isLight }, args.surface)
 
-  return skinsCatalog(look, Math.max(20, Math.floor(args.columns)), args.lang === 'pt' ? 'pt' : 'en').map(entry => ({ ...entry, tree: staticTree(entry.tree) }))
+  return skinsCatalog(look, Math.max(20, Math.floor(args.columns)), args.lang === 'pt' ? 'pt' : 'en').map(entry => ({ ...entry, tree: staticTree(entry.tree, look.t) }))
 }
 
 const isChoice = (field: string): field is Choice => Object.hasOwn(CHOICES, field)

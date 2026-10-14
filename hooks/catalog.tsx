@@ -12,7 +12,7 @@ import { askBand, codeCard, desktopSpinnerRow, diffCard, footerRow, groupRow, pr
 import type { Look } from './rows'
 import { preview } from './panel'
 import { shellRows } from './shell-rows'
-export { staticTree } from './static-tree'
+export { staticTree } from './kit/kit'
 import type { Palette, ToolKind } from './skin'
 import { SLOTS } from './custom'
 import { NATIVE } from './kit/tone'
