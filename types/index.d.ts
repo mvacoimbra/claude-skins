@@ -152,7 +152,7 @@ declare module 'claude-code' {
       duration: StateFamily<number>
       editing: SkinSlot
       // cache-tax's countdown as the band last drew it, so the minute tick redraws only on a change.
-      cacheLine: { text: string; tone: 'ok' | 'warn' | 'err' } | null
+      cacheLine: { text: string; tone: 'ok' | 'warn' | 'err'; short: string } | null
       usage: UsageSnap
       // The usage band's countdowns by limit label, as last drawn.
       countdowns: Record<string, string>

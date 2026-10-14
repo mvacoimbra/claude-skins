@@ -1346,7 +1346,7 @@ export const register: Register = on => {
       $,
       e,
       <Box flexDirection="column">
-        {usageBand(look, meters, !e.props.isWorking && !isCompacting, compact, cache)}
+        {usageBand(look, meters, !e.props.isWorking && !isCompacting, compact, cache, undefined, e.props.bodyColumns)}
         {theirs}
       </Box>,
     )

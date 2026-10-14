@@ -33,6 +33,7 @@ import type { Meter } from './svg-usage'
 import { kindOf, toolLabel } from './tools'
 import { inlineMath, mathArt, parseTex } from './math'
 import { mathSvg } from './svg-math'
+import { cacheShort } from './cache'
 import type { CacheLine } from './cache'
 import { kitFor } from './ink'
 import type { Ink } from './ink'
@@ -901,13 +902,13 @@ export const COMPACT_NUDGE = 70
 
 export const COMPACT_HOTKEY = '0'
 
-function meterView(look: Look, meters: readonly Meter[]) {
+function meterView(look: Look, meters: readonly Meter[], maxWidth = Infinity) {
   const { Box, Text } = look.ui
   const palette = look.ink
 
   if (look.svg !== undefined) {
     const Svg = look.svg
-    const built = usageSvg(meters, look.skin.palette)
+    const built = usageSvg(meters, look.skin.palette, maxWidth)
 
     return <Svg source={sourceOf(look, `usage:${metersKey(meters)}`, built)} alt={built.alt} width={built.width} height={built.height} />
   }
@@ -924,36 +925,113 @@ function meterView(look: Look, meters: readonly Meter[]) {
   )
 }
 
-// The band above the prompt: the meters, and a Compact button that becomes the main
-// action, with a word on why, once the context is full enough to be worth it.
-// The meters, then cache-tax's countdown until the prompt cache goes cold when it is installed.
-export function usageBand(look: Look, meters: readonly Meter[], canCompact: boolean, compact: () => void, cache: CacheLine | null = null) {
+// The desktop's compact control: one glyph on a native button, its words in a hover card.
+export const COMPACT_GLYPH = '⊟'
+
+// Cells the desktop gives the glyph's native button and the cache icon, to keep a hover card
+// clear of the controls it explains.
+const COMPACT_W = 4
+const ICON_W = 2
+const BAND_PAD = 5
+
+type Reveal = 'cache' | 'compact'
+
+// The band above the prompt: the meters, cache-tax's countdown until the prompt cache goes
+// cold when it is installed, and the Compact control, which becomes the main action once the
+// context is full enough to be worth it.
+//
+// On the desktop the cache is the kit's cache icon in its state's colour with only its timer,
+// and Compact a one-glyph native button; each says the rest in a hover card laid inside the
+// band row (the band clips anything outside it), anchored at the right over the meters and
+// clear of the controls. The terminal, which has no hover, keeps short words: `cache 42m`,
+// `0: Compact`, and the nudge's warning. `reveal` draws a card shown, for the catalog.
+// `columns` is the band's width, so the desktop's meters wrap rather than push the controls out.
+export function usageBand(look: Look, meters: readonly Meter[], canCompact: boolean, compact: () => void, cache: CacheLine | null = null, reveal?: Reveal, columns = 100) {
   const { Box, Text, Button } = look.ui
   const palette = look.ink
   const context = meters.find(meter => meter.label === 'context')?.percent ?? 0
   const isNudge = context >= COMPACT_NUDGE
 
+  if (look.svg === undefined) {
+    return (
+      // The right edge stays clear: the band draws its own collapse mark ([-]) there.
+      <Box flexDirection="row" alignItems="center" columnGap={2} paddingRight={BAND_PAD}>
+        {meters.length > 0 ? meterView(look, meters) : ''}
+        {cache === null ? '' : <Text color={palette[cache.tone]}>{cacheShort(cache)}</Text>}
+        <Box flexGrow={1} />
+        {canCompact && isNudge ? <Text color={palette.warn}>{`Context is ${context}% full`}</Text> : ''}
+        {canCompact ? (
+          // A digit hotkey: typed alone into an empty prompt it presses the band's button, which
+          // is the only way in where the terminal reports no clicks. `plain` shows it: `0: Compact`.
+          <Button
+            key="compact"
+            label={isNudge ? 'Compact now' : 'Compact'}
+            hotkey={COMPACT_HOTKEY}
+            plain
+            {...(isNudge ? { variant: 'primary' as const } : { dimColor: true })}
+            onPress={compact}
+          />
+        ) : (
+          ''
+        )}
+      </Box>
+    )
+  }
+
+  const k = kitFor(look)
+  const cacheW = cache === null ? 0 : ICON_W + (cache.short === '' ? 0 : 1 + cache.short.length)
+  // Left of both controls, so a card never covers the one under the pointer.
+  const clear = BAND_PAD + (canCompact ? COMPACT_W : 0) + (canCompact && cache !== null ? 2 : 0) + cacheW + 1
+  // About the pixels a column takes on the desktop; the meters keep clear of the controls.
+  const meterRoom = Math.max(200, (columns - clear - 2) * 7.5)
+  const compactWords = isNudge ? `Context is ${context}% full · compact now` : `Compact the conversation · context ${context}%`
+  const card = (id: Reveal, words: string, color: string | undefined) => (
+    <Box
+      key={`band-card-${id}`}
+      position="absolute"
+      top={0}
+      right={clear}
+      {...(reveal === id ? {} : { display: 'none' as const, hover: { scope: `skins-band-${id}`, display: 'flex' as const } })}
+      flexDirection="row"
+      paddingX={1}
+      borderStyle="round"
+      borderColor={look.t.ink.line}
+      backgroundColor={look.t.hex.hover}
+    >
+      <Text color={color} wrap="truncate-end">
+        {words}
+      </Text>
+    </Box>
+  )
+
   return (
-    // The right edge stays clear: the band draws its own collapse mark ([-]) there.
-    <Box flexDirection="row" alignItems="center" columnGap={2} paddingRight={5}>
-      {meters.length > 0 ? meterView(look, meters) : ''}
-      {cache === null ? '' : kitStatus(kitFor(look), cache.text, cache.tone)}
+    <Box flexDirection="row" alignItems="center" columnGap={2} paddingRight={BAND_PAD}>
+      {meters.length > 0 ? meterView(look, meters, meterRoom) : ''}
       <Box flexGrow={1} />
-      {canCompact && isNudge ? <Text color={palette.warn}>{`Context is ${context}% full`}</Text> : ''}
+      {cache === null ? (
+        ''
+      ) : (
+        <Box key="band-cache" flexDirection="row" columnGap={1} alignItems="center" hover={{ scope: 'skins-band-cache' }}>
+          {kitIcon(k, 'cache', cache.tone)}
+          {cache.short === '' ? '' : <Text color={palette[cache.tone]}>{cache.short}</Text>}
+        </Box>
+      )}
       {canCompact ? (
-        // A digit hotkey: typed alone into an empty prompt it presses the band's button, which
-        // is the only way in where the terminal reports no clicks. `plain` shows it: `0: Compact`.
-        <Button
-          key="compact"
-          label={isNudge ? 'Compact now' : 'Compact'}
-          hotkey={COMPACT_HOTKEY}
-          plain
-          {...(isNudge ? { variant: 'primary' as const } : { dimColor: true })}
-          onPress={compact}
-        />
+        <Box key="band-compact" hover={{ scope: 'skins-band-compact' }}>
+          <Button
+            key="compact"
+            label={COMPACT_GLYPH}
+            hotkey={COMPACT_HOTKEY}
+            plain
+            {...(isNudge ? { variant: 'primary' as const } : { dimColor: true })}
+            onPress={compact}
+          />
+        </Box>
       ) : (
         ''
       )}
+      {cache === null ? '' : card('cache', cache.text, palette[cache.tone])}
+      {canCompact ? card('compact', compactWords, isNudge ? palette.warn : palette.fg) : ''}
     </Box>
   )
 }

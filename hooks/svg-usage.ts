@@ -109,21 +109,38 @@ export const meterSlot = (percent: number): 'err' | 'warn' | 'user' => (percent 
 
 export const meterColor = (percent: number, palette: Palette): string => palette[meterSlot(percent)]
 
-export function usageSvg(meters: readonly Meter[], palette: Palette): { source: string; width: number; height: number; alt: string; entranceMs: number } {
+// `maxWidth`, in pixels, wraps the meters onto more lines where one line would run past it.
+export function usageSvg(meters: readonly Meter[], palette: Palette, maxWidth = Infinity): { source: string; width: number; height: number; alt: string; entranceMs: number } {
   // A meter with a countdown is wider than the rest; each starts where the one before ended.
   // The words measured with room to spare: the percent is bold, and the desktop's sans runs
   // wider than the estimate.
   const wordsW = (meter: Meter) => measure(`${meter.percent}%`, false, TEXT_SIZE) * 1.2 + measure(meterText(meter).slice(`${meter.percent}%`.length), false, TEXT_SIZE) * 1.2
-  const widths = meters.map((meter, i) => Math.max(ITEM_W, Math.ceil(RING_BOX + GAP + wordsW(meter) + (i === meters.length - 1 ? 4 : ITEM_GAP))))
-  const starts = widths.map((_, i) => widths.slice(0, i).reduce((sum, w) => sum + w, 0))
-  const width = widths.reduce((sum, w) => sum + w, 0)
-  const height = 24
-  const mid = height / 2
+  const widths = meters.map(meter => Math.max(ITEM_W, Math.ceil(RING_BOX + GAP + wordsW(meter) + ITEM_GAP)))
+  // Each meter's place: along its line, and which line.
+  const places: { x: number; line: number }[] = []
+  let x0 = 0
+  let line = 0
+
+  for (const w of widths) {
+    if (x0 > 0 && x0 + w - ITEM_GAP > maxWidth) {
+      x0 = 0
+      line += 1
+    }
+
+    places.push({ x: x0, line })
+    x0 += w
+  }
+
+  const LINE_H = 24
+  const width = Math.max(...places.map((place, i) => place.x + (widths[i] ?? 0) - ITEM_GAP + 4), 0)
+  const height = LINE_H * (line + 1)
   const circumference = 2 * Math.PI * RING_R
 
   const items = meters
     .map((meter, i) => {
-      const x = (starts[i] ?? 0) + RING_BOX / 2
+      const place = places[i] ?? { x: 0, line: 0 }
+      const x = place.x + RING_BOX / 2
+      const mid = place.line * LINE_H + LINE_H / 2
       const filled = (circumference * meter.percent) / 100
       const color = meterColor(meter.percent, palette)
 
