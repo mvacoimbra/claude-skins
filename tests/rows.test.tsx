@@ -2216,14 +2216,32 @@ for (const [plugin, text, short] of [[CACHE_TAX, 'cache: cold in 42m', '42m'], [
     const icon = ((await desktop.findAll({ type: 'Svg' })) as unknown as { props: { alt?: string; source: string } }[]).find(svg => svg.props.alt === 'cache')
     expect(icon?.props.source).toContain('stroke="#4eba65"')
     expect((await desktop.find({ type: 'Text', text: short }))?.props.color).toBe('success')
-    const card = (await desktop.find({ key: 'band-card-cache' })) as { props: Record<string, unknown> } | undefined
+    // The card sits inside the icon's keyed Box, unkeyed, hidden until that Box is hovered.
+    const card = cardIn(await desktop.drawn(), 'band-cache')
     expect(card?.props).toMatchObject({ position: 'absolute', display: 'none' })
-    const drawn = JSON.stringify(await desktop.drawn())
-    expect(drawn).toContain('"hover":{"scope":"skins-band-cache","display":"flex"}')
-    expect(drawn).toContain('"hover":{"scope":"skins-band-cache"}')
+    expect(card?.props.key).toBeUndefined()
+    expect(card?.hover).toEqual({ display: 'flex' })
     expect(await desktop.find({ type: 'Text', text })).toBeDefined()
     await desktop.unmount()
   })
+}
+
+// The hover card inside the keyed Box `key`: its absolutely placed child.
+type Drawn = { props?: Record<string, unknown>; hover?: Record<string, unknown>; children?: unknown[] }
+
+function cardIn(tree: unknown, key: string): Drawn | undefined {
+  const find = (node: unknown, inside: boolean): Drawn | undefined => {
+    if (node === null || typeof node !== 'object') return undefined
+    const n = node as Drawn
+    if (inside && n.props?.position === 'absolute') return n
+    for (const child of n.children ?? []) {
+      const hit = find(child, inside || n.props?.key === key)
+      if (hit) return hit
+    }
+    return undefined
+  }
+
+  return find(tree, false)
 }
 
 test('on the desktop Compact is one glyph, its words and the nudge in a hover card', async ($, on) => {
@@ -2237,8 +2255,9 @@ test('on the desktop Compact is one glyph, its words and the nudge in a hover ca
   const button = (await band.find({ key: 'compact' })) as { props: Record<string, unknown> } | undefined
   expect(button?.props).toMatchObject({ label: '⊟', plain: true, hotkey: '0', dimColor: true })
   expect(await band.find({ type: 'Text', text: 'Compact the conversation · context 42%' })).toBeDefined()
-  expect(((await band.find({ key: 'band-card-compact' })) as { props: Record<string, unknown> } | undefined)?.props).toMatchObject({ position: 'absolute', display: 'none' })
-  expect(JSON.stringify(await band.drawn())).toContain('"hover":{"scope":"skins-band-compact","display":"flex"}')
+  const card = cardIn(await band.drawn(), 'band-compact')
+  expect(card?.props).toMatchObject({ position: 'absolute', display: 'none' })
+  expect(card?.hover).toEqual({ display: 'flex' })
   await band.unmount()
 
   percent = 72
