@@ -10,8 +10,13 @@ import type { Table } from './markdown'
 import { replySegments } from './reply'
 import { askBand, codeCard, desktopSpinnerRow, diffCard, footerRow, groupRow, promptRow, quietResult, replyRows, spinnerRow, terminalCard, toolRow, usageBand } from './rows'
 import type { Look } from './rows'
+import { preview } from './panel'
 import { shellRows } from './shell-rows'
-import type { ToolKind } from './skin'
+export { staticTree } from './static-tree'
+import type { Palette, ToolKind } from './skin'
+import { SLOTS } from './custom'
+import { NATIVE } from './kit/tone'
+import { isLightPalette } from './svg-kit'
 
 // Every component skins draws, each named, from the same builders the transcript uses, so a
 // note on one is a note on the real thing. Shown in the Components tab of /mods.
@@ -23,7 +28,7 @@ const TABLE: Table = {
   header: ['Skin', 'Accent', 'Time'],
   align: ['left', 'left', 'right'],
   rows: [
-    ['noir', '#f5f5f5', '41s'],
+    ['claude', '#d97757', '41s'],
     ['tokyo-night', '#7aa2f7', '2.1s'],
     ['dracula', '#bd93f9', '340ms'],
   ],
@@ -77,35 +82,37 @@ type Names = { en: string; pt: string; helpEn: string; helpPt: string }
 
 const n = (en: string, pt: string, helpEn: string, helpPt: string): Names => ({ en, pt, helpEn, helpPt })
 
-// A tree another mod can draw: plain data, so a press, a field or a surface module, whose
-// closures stay in this mod, becomes its label as text, and every function is left out.
-export function staticTree(node: unknown): unknown {
-  if (Array.isArray(node)) {
-    return node.map(staticTree)
-  }
+// A palette as the kit's swatches: each slot's colour chip, its name and its hex, wrapping.
+function paletteSwatches(look: Look, palette: Palette, key: string) {
+  const { Box, Text } = look.ui
+  const Svg = look.svg
+  const line = look.t.hex.line
 
-  if (node === null || typeof node !== 'object') {
-    return typeof node === 'function' ? undefined : node
-  }
-
-  const element = node as { type?: unknown; props?: Record<string, unknown>; children?: unknown }
-
-  if (element.type === 'Button' || element.type === 'Input' || element.type === 'Select' || element.type === 'Client') {
-    const label = String(element.props?.label ?? element.props?.placeholder ?? element.props?.key ?? '')
-
-    return { type: 'Text', props: element.props?.dimColor === true ? { dimColor: true } : {}, children: [element.type === 'Button' ? `[ ${label} ]` : label] }
-  }
-
-  return Object.fromEntries(
-    Object.entries(element)
-      .filter(([key, value]) => key !== 'press' && typeof value !== 'function')
-      .map(([key, value]) => [key, key === 'props' && value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).filter(([, prop]) => typeof prop !== 'function')) : staticTree(value)]),
+  return (
+    <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
+      {SLOTS.map(slot => (
+        <Box key={`${key}-${slot}`} flexDirection="row" columnGap={1} alignItems="center" width={24}>
+          {Svg === undefined ? (
+            <Text backgroundColor={palette[slot]}>{'  '}</Text>
+          ) : (
+            <Svg
+              source={`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x=".5" y=".5" width="15" height="15" rx="4" fill="${palette[slot]}" stroke="${line}"/></svg>`}
+              alt={`${slot} ${palette[slot]}`}
+              width={16}
+              height={16}
+            />
+          )}
+          <Text color={look.ink.fg}>{slot}</Text>
+          <Text color={look.t.ink.faint}>{palette[slot]}</Text>
+        </Box>
+      ))}
+    </Box>
   )
 }
 
 export function skinsCatalog(look: Look, columns: number, lang: Lang): SkinsCatalogEntry[] {
-  const { Text, Box } = look.ui
-  const { palette } = look.skin
+  const { Text } = look.ui
+  const palette = look.ink
   const svg = look.svg
   const width = Math.max(40, columns - 4)
   const entries: SkinsCatalogEntry[] = []
@@ -203,16 +210,10 @@ export function skinsCatalog(look: Look, columns: number, lang: Lang): SkinsCata
 
   add('ask-band', n('Band above a question', 'Faixa acima de uma pergunta', 'The questions of an AskUserQuestion dialog, as tabs', 'As perguntas de um diálogo AskUserQuestion, como abas'), askBand(look, ['Approach', 'Store']))
   add('turn-footer', n('Turn footer', 'Rodapé do turno', "The line that closes a turn: the skin's word, time, tools and lines (terminal)", 'A linha que fecha um turno: palavra do skin, tempo, ferramentas e linhas (terminal)'), footerRow(look, look.skin.done[0] ?? 'Done', 41_000, { tools: 6, added: 18, removed: 3 }))
-  add('palette', n('The skin’s palette', 'A paleta do skin', 'Every colour slot of the active skin', 'Cada cor do skin ativo'), (
-    <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
-      {Object.entries(palette).map(([slot, color]) => (
-        <Box key={`palette-${slot}`} flexDirection="row" columnGap={1} width={18}>
-          <Text backgroundColor={color}>{'   '}</Text>
-          <Text color={palette.muted}>{slot}</Text>
-        </Box>
-      ))}
-    </Box>
-  ))
+  add('palette', n('The skin’s palette', 'A paleta do skin', `Every colour slot of ${look.skin.label}, as $.skins.palette() hands it to the other mods`, `Cada cor de ${look.skin.label}, como $.skins.palette() entrega aos outros mods`), paletteSwatches(look, look.skin.palette, 'palette'))
+  const native = isLightPalette(look.skin.palette) ? NATIVE.light : NATIVE.dark
+  add('skins-tab-preview', n('Skins tab: the preview', 'Aba Skins: a prévia', 'A turn drawn in the chosen skin, in a well inside the Skin section of /mods', 'Um turno desenhado no skin escolhido, num poço dentro da seção Skin do /mods'), preview(look, columns))
+  add('palette-claude', n('Claude’s palette', 'A paleta do Claude', "Claude Code's own colours, the default skin and every mod's colours while skins is off", 'As cores do próprio Claude Code: o skin padrão e as cores de todo mod com o skins desligado'), paletteSwatches(look, native, 'palette-claude'))
 
   return entries
 }
